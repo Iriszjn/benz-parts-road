@@ -46,7 +46,28 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateUIText() { const langPack = translations[gameState.currentLanguage]; document.documentElement.lang = gameState.currentLanguage; document.querySelectorAll('[data-lang-key]').forEach(el => { const key = el.getAttribute('data-lang-key'); if (langPack[key]) el.textContent = langPack[key]; }); document.querySelectorAll('[data-lang-key-placeholder]').forEach(el => { const key = el.getAttribute('data-lang-key-placeholder'); if(langPack[key]) el.placeholder = langPack[key]; }); generateInstructions(); }
     
     // ----- 初始化 -----
-    function init() { document.getElementById('start-screen').prepend(langSwitcherContainer); updateUIText(); listenForLeaderboardChanges(); movePlayer(playerElements.box, window.innerWidth / 2); movePlayer(playerElements.truck, window.innerWidth / 2); buttons.startGame.addEventListener('click', () => { modals.nameEntry.style.display = 'flex'; }); buttons.confirmName.addEventListener('click', () => { const name = playerNameInput.value.trim(); if (name) { gameState.playerName = name; modals.nameEntry.style.display = 'none'; startGame(); } else { alert(gameState.currentLanguage === 'zh' ? '请输入你的名字！' : 'Please enter your name!'); } }); buttons.instructions.addEventListener('click', () => showScreen('instructions')); buttons.leaderboard.addEventListener('click', () => { showScreen('leaderboard'); displayLeaderboard(displays.leaderboardListDisplay); }); buttons.backToMenu.forEach(btn => btn.addEventListener('click', () => showScreen('start'))); buttons.restartGame.addEventListener('click', () => { showScreen('start'); }); buttons.continueToLeaderboard.addEventListener('click', () => gameOver()); document.getElementById('lang-switcher').addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') { const lang = e.target.id.split('-')[1]; if (lang !== gameState.currentLanguage) { gameState.currentLanguage = lang; document.getElementById('lang-zh').classList.toggle('active'); document.getElementById('lang-en').classList.toggle('active'); updateUIText(); } } }); gameAreas.level1.addEventListener('touchmove', (e) => { e.preventDefault(); if(gameState.current === 'playing' && gameState.level === 1) movePlayer(playerElements.box, e.touches[0].clientX); }, { passive: false }); gameAreas.level1.addEventListener('mousemove', (e) => { if (e.buttons === 1 && gameState.current === 'playing' && gameState.level === 1) movePlayer(playerElements.box, e.clientX); }); gameAreas.level2.addEventListener('touchmove', (e) => { e.preventDefault(); if(gameState.current === 'playing' && gameState.level === 2) movePlayer(playerElements.truck, e.touches[0].clientX); }, { passive: false }); gameAreas.level2.addEventListener('mousemove', (e) => { if (e.buttons === 1 && gameState.current === 'playing' && gameState.level === 2) movePlayer(playerElements.truck, e.clientX); }); }
+    function init() {
+        document.getElementById('start-screen').prepend(langSwitcherContainer);
+        updateUIText();
+        listenForLeaderboardChanges();
+        movePlayer(playerElements.box, window.innerWidth / 2);
+        movePlayer(playerElements.truck, window.innerWidth / 2);
+
+        buttons.startGame.addEventListener('click', () => { modals.nameEntry.style.display = 'flex'; });
+        buttons.confirmName.addEventListener('click', () => { const name = playerNameInput.value.trim(); if (name) { gameState.playerName = name; modals.nameEntry.style.display = 'none'; startGame(); } else { alert(gameState.currentLanguage === 'zh' ? '请输入你的名字！' : 'Please enter your name!'); } });
+        buttons.instructions.addEventListener('click', () => showScreen('instructions'));
+        buttons.leaderboard.addEventListener('click', () => { showScreen('leaderboard'); displayLeaderboard(displays.leaderboardListDisplay); });
+        buttons.backToMenu.forEach(btn => btn.addEventListener('click', () => showScreen('start')));
+        buttons.restartGame.addEventListener('click', () => { showScreen('start'); });
+        buttons.continueToLeaderboard.addEventListener('click', () => gameOver());
+        
+        document.getElementById('lang-switcher').addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') { const lang = e.target.id.split('-')[1]; if (lang !== gameState.currentLanguage) { gameState.currentLanguage = lang; document.getElementById('lang-zh').classList.toggle('active'); document.getElementById('lang-en').classList.toggle('active'); updateUIText(); } } });
+        
+        gameAreas.level1.addEventListener('touchmove', (e) => { e.preventDefault(); if(gameState.current === 'playing' && gameState.level === 1) movePlayer(playerElements.box, e.touches[0].clientX); }, { passive: false });
+        gameAreas.level1.addEventListener('mousemove', (e) => { if (e.buttons === 1 && gameState.current === 'playing' && gameState.level === 1) movePlayer(playerElements.box, e.clientX); });
+        gameAreas.level2.addEventListener('touchmove', (e) => { e.preventDefault(); if(gameState.current === 'playing' && gameState.level === 2) movePlayer(playerElements.truck, e.touches[0].clientX); }, { passive: false });
+        gameAreas.level2.addEventListener('mousemove', (e) => { if (e.buttons === 1 && gameState.current === 'playing' && gameState.level === 2) movePlayer(playerElements.truck, e.clientX); });
+    }
     
     // ----- 游戏流程 -----
     function showScreen(screenName) { Object.values(screens).forEach(s => s.classList.remove('active')); screens[screenName].classList.add('active'); langSwitcherContainer.style.display = (screenName === 'start') ? 'block' : 'none'; }
@@ -151,13 +172,14 @@ document.addEventListener('DOMContentLoaded', () => {
         displays.finalScoreTitle.style.display = 'block';
         if (isL1Fail) {
             displays.finalScoreTitle.textContent = lang.fail_details_l1;
+            displays.finalScore.textContent = '';
         } else {
             displays.finalScoreTitle.innerHTML = `<span data-lang-key="final_score">${lang.final_score}</span>: <span>${gameState.finalScore}</span>`;
         }
         showScreen('gameOver');
         displayLeaderboard(displays.leaderboardList);
     }
-    
+
     async function updateLeaderboard(name, newScore) { try { await db.collection("leaderboard").add({ name: name, score: newScore, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); console.log("Score submitted!"); } catch (error) { console.error("Error submitting score: ", error); } }
     function listenForLeaderboardChanges() { db.collection("leaderboard").orderBy("score", "desc").limit(10).onSnapshot((snapshot) => { gameState.cachedLeaderboard = snapshot.docs.map(doc => doc.data()); if (screens.leaderboard.classList.contains('active')) displayLeaderboard(displays.leaderboardListDisplay); if (screens.gameOver.classList.contains('active')) displayLeaderboard(displays.leaderboardList); }, (error) => console.error(error)); }
     function displayLeaderboard(listElement) { const lang = translations[gameState.currentLanguage]; listElement.innerHTML = ''; if (gameState.cachedLeaderboard.length === 0) { listElement.innerHTML = `<li>${lang.leaderboard_empty}</li>`; return; } gameState.cachedLeaderboard.forEach((entry, index) => { const li = document.createElement('li'); const safeName = document.createTextNode(entry.name).textContent; li.innerHTML = `<span>${index + 1}. ${safeName}</span><span>${entry.score}</span>`; listElement.appendChild(li); }); }

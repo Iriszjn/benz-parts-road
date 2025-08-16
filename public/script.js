@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
         oil: { name: { zh: '废油桶', en: 'Oil Barrel' }, score: -20, speed: 4, size: 65, img: 'images/oil_barrel.png' },
         screw: { name: { zh: '螺丝', en: 'Screw' }, score: 1, speed: 2, size: 30, img: 'images/screw.png' }
     };
-    const level1WeightedItems = ['engine', 'battery', 'battery', 'tire', 'tire', 'tire', 'brake_disc', 'brake_disc', 'piston', 'piston', 'piston', 'star', 'star', 'screw', 'screw', 'screw', 'oil', 'oil', 'oil', 'oil'];
+    const level1WeightedItems = ['engine', 'battery', 'battery', 'tire', 'tire', 'tire', 'brake_disc', 'brake_disc', 'piston', 'piston', 'piston', 'star', 'star', 'screw', 'screw', 'screw', 'oil', 'oil'];
     const roadObjectTypes = { cone: { img: 'images/obstacle.png', size: 50 }, car_obstacle_red: { img: 'images/car_obstacle_red.png', size: 55 }, car_obstacle_blue: { img: 'images/car_obstacle_blue.png', size: 55 } };
     const translations = {
         zh: { title: "奔驰星辉之路", start_game: "开始游戏", instructions: "玩法说明", leaderboard: "查看排行榜", back_to_menu: "返回主菜单", enter_name_title: "输入你的名字", enter_name_placeholder: "最多10个字符", confirm: "确定", hud_score: "分数", hud_target: "目标", hud_time: "时间", transition_text: "恭喜过关！准备发车！", hud_remaining_time: "剩余时间", success_title: "恭喜！零件已成功送达！", success_details_win: "剩余时间奖励", fail_title: "运输失败！", fail_details_l1: "未达到目标分数！", fail_details_l2: "时间耗尽！", success_continue: "查看最终得分", final_score: "最终得分", online_leaderboard: "在线积分榜", leaderboard_empty: "还没有人上榜，快来争第一！" },
@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showScreen('gameOver');
         displayLeaderboard(displays.leaderboardList);
     }
-    
+
     async function updateLeaderboard(name, newScore) { try { await db.collection("leaderboard").add({ name: name, score: newScore, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); console.log("Score submitted!"); } catch (error) { console.error("Error submitting score: ", error); } }
     function listenForLeaderboardChanges() { db.collection("leaderboard").orderBy("score", "desc").limit(10).onSnapshot((snapshot) => { gameState.cachedLeaderboard = snapshot.docs.map(doc => doc.data()); if (screens.leaderboard.classList.contains('active')) displayLeaderboard(displays.leaderboardListDisplay); if (screens.gameOver.classList.contains('active')) displayLeaderboard(displays.leaderboardList); }, (error) => console.error(error)); }
     function displayLeaderboard(listElement) { const lang = translations[gameState.currentLanguage]; listElement.innerHTML = ''; if (gameState.cachedLeaderboard.length === 0) { listElement.innerHTML = `<li>${lang.leaderboard_empty}</li>`; return; } gameState.cachedLeaderboard.forEach((entry, index) => { const li = document.createElement('li'); const safeName = document.createTextNode(entry.name).textContent; li.innerHTML = `<span>${index + 1}. ${safeName}</span><span>${entry.score}</span>`; listElement.appendChild(li); }); }

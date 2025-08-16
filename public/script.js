@@ -13,33 +13,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const playerNameInput = document.getElementById('player-name-input');
     const langSwitcherContainer = document.getElementById('lang-switcher-container');
 
-    // ----- 游戏状态变量 -----
-    let gameState = 'ended';
-    let playerName = "玩家";
-    let score = 0;
-    let finalScoreValue = 0;
-    let level1Timer = 30;
-    let level2TotalTime = 35;
-    const targetScore = 500;
-    const penaltyPerCollision = 3;
-    const safeDrivingInterval = 8;
-    const safeDrivingBonus = 2;
-    const level2Duration = 30;
-    let gameIntervals = [];
-    let hitCooldown = false;
-    let cachedLeaderboard = [];
-    let currentLanguage = 'zh';
-    
-    // ----- 游戏数据 -----
+    // ----- 游戏核心状态 -----
+    let gameState = {
+        current: 'ended', playerName: "玩家", score: 0, finalScore: 0, level1Timer: 30, level2TotalTime: 35,
+        hitCooldown: false, cachedLeaderboard: [], currentLanguage: 'zh', animationFrameId: null
+    };
+
+    // ----- 游戏常量与数据 -----
+    const TARGET_SCORE = 500;
+    const PENALTY_PER_COLLISION = 3;
+    const SAFE_DRIVING_INTERVAL = 8;
+    const SAFE_DRIVING_BONUS = 2;
+    const LEVEL_2_DURATION = 30;
     const itemTypes = {
-        engine: { name: { zh: '发动机', en: 'Engine' }, score: 50, speed: 4, size: 100, img: 'images/engine.png' },
-        battery: { name: { zh: '汽车电池', en: 'Battery' }, score: 40, speed: 4, size: 50, img: 'images/battery.png' },
-        tire: { name: { zh: '轮胎', en: 'Tire' }, score: 10, speed: 3, size: 70, img: 'images/tire.png' },
-        brake_disc: { name: { zh: '刹车盘', en: 'Brake Disc' }, score: 20, speed: 4, size: 65, img: 'images/brake_disc.png' },
-        piston: { name: { zh: '活塞', en: 'Piston' }, score: 15, speed: 3, size: 60, img: 'images/piston.png' },
-        star: { name: { zh: '奔驰星徽', en: 'Star' }, score: 30, speed: 5, size: 60, img: 'images/star.png' },
-        oil: { name: { zh: '废油桶', en: 'Oil Barrel' }, score: -20, speed: 4, size: 65, img: 'images/oil_barrel.png' },
-        screw: { name: { zh: '螺丝', en: 'Screw' }, score: 1, speed: 2, size: 30, img: 'images/screw.png' }
+        engine: { name: { zh: '发动机', en: 'Engine' }, score: 50, speed: 4, size: 100 },
+        battery: { name: { zh: '汽车电池', en: 'Battery' }, score: 40, speed: 4, size: 50 },
+        tire: { name: { zh: '轮胎', en: 'Tire' }, score: 10, speed: 3, size: 70 },
+        brake_disc: { name: { zh: '刹车盘', en: 'Brake Disc' }, score: 20, speed: 4, size: 65 },
+        piston: { name: { zh: '活塞', en: 'Piston' }, score: 15, speed: 3, size: 60 },
+        star: { name: { zh: '奔驰星徽', en: 'Star' }, score: 30, speed: 5, size: 60 },
+        oil: { name: { zh: '废油桶', en: 'Oil Barrel' }, score: -20, speed: 4, size: 65 },
+        screw: { name: { zh: '螺丝', en: 'Screw' }, score: 1, speed: 2, size: 30 }
     };
     const level1WeightedItems = ['engine', 'battery', 'battery', 'tire', 'tire', 'tire', 'brake_disc', 'brake_disc', 'piston', 'piston', 'piston', 'star', 'star', 'screw', 'screw', 'screw', 'oil', 'oil', 'oil', 'oil'];
     const roadObjectTypes = { cone: { img: 'images/obstacle.png', size: 50 }, car_obstacle_red: { img: 'images/car_obstacle_red.png', size: 55 }, car_obstacle_blue: { img: 'images/car_obstacle_blue.png', size: 55 } };
@@ -49,137 +43,182 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     // ----- 语言与UI -----
-    function updateUIText() { const langPack = translations[currentLanguage]; document.querySelectorAll('[data-lang-key]').forEach(el => { const key = el.getAttribute('data-lang-key'); if (langPack[key]) el.textContent = langPack[key]; }); document.querySelectorAll('[data-lang-key-placeholder]').forEach(el => { const key = el.getAttribute('data-lang-key-placeholder'); if(langPack[key]) el.placeholder = langPack[key]; }); generateInstructions(); }
+    function updateUIText() { const langPack = translations[gameState.currentLanguage]; document.querySelectorAll('[data-lang-key]').forEach(el => { const key = el.getAttribute('data-lang-key'); if (langPack[key]) el.textContent = langPack[key]; }); document.querySelectorAll('[data-lang-key-placeholder]').forEach(el => { const key = el.getAttribute('data-lang-key-placeholder'); if(langPack[key]) el.placeholder = langPack[key]; }); generateInstructions(); }
     
     // ----- 初始化 -----
-    function init() { document.getElementById('start-screen').prepend(langSwitcherContainer); updateUIText(); listenForLeaderboardChanges(); movePlayer(playerElements.box, window.innerWidth / 2); movePlayer(playerElements.truck, window.innerWidth / 2); document.getElementById('lang-switcher').addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') { const lang = e.target.id.split('-')[1]; if (lang !== currentLanguage) { currentLanguage = lang; document.getElementById('lang-zh').classList.toggle('active'); document.getElementById('lang-en').classList.toggle('active'); updateUIText(); } } }); }
+    function init() {
+        document.getElementById('start-screen').prepend(langSwitcherContainer);
+        updateUIText();
+        listenForLeaderboardChanges();
+        movePlayer(playerElements.box, window.innerWidth / 2);
+        movePlayer(playerElements.truck, window.innerWidth / 2);
+        // 事件监听
+        buttons.startGame.addEventListener('click', () => { modals.nameEntry.style.display = 'flex'; });
+        buttons.confirmName.addEventListener('click', () => { const name = playerNameInput.value.trim(); if (name) { gameState.playerName = name; modals.nameEntry.style.display = 'none'; startGame(); } else { alert(gameState.currentLanguage === 'zh' ? '请输入你的名字！' : 'Please enter your name!'); } });
+        buttons.instructions.addEventListener('click', () => showScreen('instructions'));
+        buttons.leaderboard.addEventListener('click', () => { showScreen('leaderboard'); displayLeaderboard(displays.leaderboardListDisplay); });
+        buttons.backToMenu.forEach(btn => btn.addEventListener('click', () => showScreen('start')));
+        buttons.restartGame.addEventListener('click', () => { showScreen('start'); });
+        buttons.continueToLeaderboard.addEventListener('click', () => gameOver());
+        document.getElementById('lang-switcher').addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') { const lang = e.target.id.split('-')[1]; if (lang !== gameState.currentLanguage) { gameState.currentLanguage = lang; document.getElementById('lang-zh').classList.toggle('active'); document.getElementById('lang-en').classList.toggle('active'); updateUIText(); } } });
+        gameAreas.level1.addEventListener('touchmove', (e) => { e.preventDefault(); movePlayer(playerElements.box, e.touches[0].clientX); }, { passive: false });
+        gameAreas.level1.addEventListener('mousemove', (e) => { if (e.buttons === 1) movePlayer(playerElements.box, e.clientX); });
+        gameAreas.level2.addEventListener('touchmove', (e) => { e.preventDefault(); movePlayer(playerElements.truck, e.touches[0].clientX); }, { passive: false });
+        gameAreas.level2.addEventListener('mousemove', (e) => { if (e.buttons === 1) movePlayer(playerElements.truck, e.clientX); });
+    }
     
     // ----- 游戏流程 -----
     function showScreen(screenName) { Object.values(screens).forEach(s => s.classList.remove('active')); screens[screenName].classList.add('active'); langSwitcherContainer.style.display = (screenName === 'start') ? 'block' : 'none'; }
-    buttons.startGame.addEventListener('click', () => { modals.nameEntry.style.display = 'flex'; });
-    buttons.confirmName.addEventListener('click', () => { const name = playerNameInput.value.trim(); if (name) { playerName = name; modals.nameEntry.style.display = 'none'; startGame(); } else { alert(currentLanguage === 'zh' ? '请输入你的名字！' : 'Please enter your name!'); } });
-    buttons.instructions.addEventListener('click', () => showScreen('instructions'));
-    buttons.leaderboard.addEventListener('click', () => { showScreen('leaderboard'); displayLeaderboard(displays.leaderboardListDisplay); });
-    buttons.backToMenu.forEach(btn => btn.addEventListener('click', () => showScreen('start')));
-    buttons.restartGame.addEventListener('click', () => { showScreen('start'); });
-    buttons.continueToLeaderboard.addEventListener('click', () => showScreen('gameOver'));
-
     function startGame() { resetGame(); showScreen('game'); startLevel1(); }
-    function resetGame() { gameState = 'ended'; gameIntervals.forEach(clearInterval); gameIntervals = []; score = 0; finalScoreValue = 0; level1Timer = 30; level2TotalTime = 35; hitCooldown = false; displays.score.textContent = score; displays.timer.textContent = level1Timer; displays.remainingTime.textContent = level2TotalTime.toFixed(1); gameAreas.level1.innerHTML = ''; gameAreas.level1.appendChild(playerElements.box); gameAreas.level2.innerHTML = ''; gameAreas.level2.appendChild(playerElements.truck); gameAreas.level2.appendChild(displays.feedbackText); levels.level1.classList.add('active'); levels.levelTransition.style.display = 'none'; levels.level2.classList.remove('active'); }
+    function resetGame() {
+        cancelAnimationFrame(gameState.animationFrameId);
+        gameState.current = 'ended';
+        gameState.score = 0;
+        gameState.finalScore = 0;
+        gameState.level1Timer = 30;
+        gameState.level2TotalTime = 35;
+        gameState.hitCooldown = false;
+        displays.score.textContent = gameState.score;
+        displays.timer.textContent = gameState.level1Timer;
+        displays.remainingTime.textContent = gameState.level2TotalTime.toFixed(1);
+        gameAreas.level1.innerHTML = ''; gameAreas.level1.appendChild(playerElements.box);
+        gameAreas.level2.innerHTML = ''; gameAreas.level2.appendChild(playerElements.truck); gameAreas.level2.appendChild(displays.feedbackText);
+        levels.level1.classList.add('active');
+        levels.levelTransition.style.display = 'none';
+        levels.level2.classList.remove('active');
+    }
+
+    // ----- 游戏主循环 (Engine) -----
+    let lastTime = 0;
+    let level1ItemTimer = 0;
+    let level2ObjectTimer = 0;
+    let level1SecondCounter = 0;
+    let level2ElapsedTime = 0;
+    let level2SafeDrivingTimer = 0;
+
+    function gameLoop(timestamp) {
+        if (gameState.current !== 'playing') return;
+        
+        const deltaTime = (timestamp - lastTime) / 1000;
+        lastTime = timestamp;
+
+        if (gameState.level === 1) {
+            level1SecondCounter += deltaTime;
+            if (level1SecondCounter >= 1) {
+                level1SecondCounter = 0;
+                gameState.level1Timer--;
+                displays.timer.textContent = Math.max(0, gameState.level1Timer);
+                if (gameState.level1Timer <= 0) { endLevel1(); return; }
+            }
+            level1ItemTimer += deltaTime;
+            if (level1ItemTimer >= 0.65) { level1ItemTimer = 0; createItem_L1(); }
+            moveItems_L1(deltaTime);
+            checkCollisions_L1();
+        } else if (gameState.level === 2) {
+            level2ElapsedTime += deltaTime;
+            gameState.level2TotalTime -= deltaTime;
+            level2SafeDrivingTimer += deltaTime;
+            displays.remainingTime.textContent = Math.max(0, gameState.level2TotalTime).toFixed(1);
+            displays.progressBar.style.width = `${(level2ElapsedTime / LEVEL_2_DURATION) * 100}%`;
+
+            if (level2SafeDrivingTimer >= SAFE_DRIVING_INTERVAL) {
+                level2SafeDrivingTimer = 0;
+                gameState.level2TotalTime += SAFE_DRIVING_BONUS;
+                showFeedback(`+${SAFE_DRIVING_BONUS}s`, '#4CAF50');
+            }
+            level2ObjectTimer += deltaTime;
+            if (level2ObjectTimer >= 1.2) { level2ObjectTimer = 0; createRoadObject_L2(); }
+            moveRoadObjects_L2(deltaTime);
+            checkTruckCollisions_L2();
+            if (level2TotalTime <= 0) { endLevel2(false); return; }
+            if (level2ElapsedTime >= LEVEL_2_DURATION) { endLevel2(true); return; }
+        }
+        gameState.animationFrameId = requestAnimationFrame(gameLoop);
+    }
 
     // ----- 关卡一 -----
-    function startLevel1() { gameState = 'playing'; const countdown = setInterval(() => { if(gameState !== 'playing') return; level1Timer--; displays.timer.textContent = level1Timer; if (level1Timer <= 0) endLevel1(); }, 1000); gameIntervals.push(countdown); const itemFall = setInterval(createItem_L1, 650); gameIntervals.push(itemFall); const gameLoop = setInterval(() => { if(gameState !== 'playing') return; moveItems_L1(); checkCollisions_L1(); }, 1000/60); gameIntervals.push(gameLoop); }
-    function createItem_L1() { const key = level1WeightedItems[Math.floor(Math.random() * level1WeightedItems.length)]; const data = itemTypes[key]; const el = document.createElement('div'); el.className = 'item'; el.style.width = `${data.size}px`; el.style.height = `${data.size}px`; el.style.backgroundImage = `url(${data.img})`; el.style.left = `${Math.random() * (gameAreas.level1.offsetWidth - data.size)}px`; el.style.top = `-${data.size}px`; el.dataset.type = key; el.dataset.speed = data.speed; gameAreas.level1.appendChild(el); }
-    function moveItems_L1() { gameAreas.level1.querySelectorAll('.item').forEach(item => { item.style.top = `${item.offsetTop + parseFloat(item.dataset.speed)}px`; if (item.offsetTop > gameAreas.level1.offsetHeight) item.remove(); }); }
-    function checkCollisions_L1() { if (gameState !== 'playing') return; const boxRect = playerElements.box.getBoundingClientRect(); gameAreas.level1.querySelectorAll('.item').forEach(item => { const itemRect = item.getBoundingClientRect(); if (boxRect.left < itemRect.right && boxRect.right > itemRect.left && boxRect.top < itemRect.bottom && boxRect.bottom > itemRect.top) { handleCollision_L1(item); item.remove(); } }); }
-    function handleCollision_L1(item) { const data = itemTypes[item.dataset.type]; score += data.score; displays.score.textContent = score; if (item.dataset.type === 'oil') { document.body.style.filter = 'blur(3px)'; setTimeout(() => { document.body.style.filter = 'none'; }, 500); } }
-    function endLevel1() { if (gameState !== 'playing') return; gameState = 'ended'; gameIntervals.forEach(clearInterval); gameIntervals = []; if (score >= targetScore) { levels.level1.classList.remove('active'); levels.levelTransition.style.display = 'flex'; setTimeout(() => { levels.levelTransition.style.display = 'none'; levels.level2.classList.add('active'); startLevel2(); }, 2000); } else { gameOver(false, 'l1'); } }
+    function startLevel1() {
+        gameState.level = 1;
+        gameState.current = 'playing';
+        lastTime = performance.now();
+        level1ItemTimer = 0;
+        level1SecondCounter = 0;
+        gameState.animationFrameId = requestAnimationFrame(gameLoop);
+    }
+    function createItem_L1() { const key = level1WeightedItems[Math.floor(Math.random() * level1WeightedItems.length)]; const data = itemTypes[key]; const el = document.createElement('div'); el.className = 'item'; el.style.width = `${data.size}px`; el.style.height = `${data.size}px`; el.style.backgroundImage = `url(images/${key}.png)`; el.style.left = `${Math.random() * (gameAreas.level1.offsetWidth - data.size)}px`; el.style.top = `-${data.size}px`; el.dataset.speed = data.speed * 60; gameAreas.level1.appendChild(el); }
+    function moveItems_L1(deltaTime) { gameAreas.level1.querySelectorAll('.item').forEach(item => { item.style.top = `${item.offsetTop + parseFloat(item.dataset.speed) * deltaTime}px`; if (item.offsetTop > gameAreas.level1.offsetHeight) item.remove(); }); }
+    function checkCollisions_L1() { if (gameState.current !== 'playing') return; const boxRect = playerElements.box.getBoundingClientRect(); gameAreas.level1.querySelectorAll('.item').forEach(item => { const itemRect = item.getBoundingClientRect(); if (boxRect.left < itemRect.right && boxRect.right > itemRect.left && boxRect.top < itemRect.bottom && boxRect.bottom > itemRect.top) { handleCollision_L1(item); item.remove(); } }); }
+    function handleCollision_L1(item) { const data = itemTypes[item.dataset.type]; gameState.score += data.score; displays.score.textContent = gameState.score; if(item.dataset.type === 'oil') { document.body.style.filter = 'blur(3px)'; setTimeout(() => { document.body.style.filter = 'none'; }, 500); } }
+    function endLevel1() { if (gameState.current !== 'playing') return; gameState.current = 'ended'; cancelAnimationFrame(gameState.animationFrameId); if (gameState.score >= TARGET_SCORE) { levels.level1.classList.remove('active'); levels.levelTransition.style.display = 'flex'; setTimeout(() => { levels.levelTransition.style.display = 'none'; levels.level2.classList.add('active'); startLevel2(); }, 2000); } else { gameOver(false, 'l1'); } }
 
     // ----- 关卡二 -----
     function startLevel2() {
-        gameState = 'playing';
-        let safeDrivingTimer = 0;
-        let elapsedTime = 0;
-
-        const mainInterval = setInterval(() => {
-            if (gameState !== 'playing') return;
-            elapsedTime += 0.1;
-            level2TotalTime -= 0.1;
-            safeDrivingTimer += 0.1;
-            displays.remainingTime.textContent = Math.max(0, level2TotalTime).toFixed(1);
-            displays.progressBar.style.width = `${(elapsedTime / level2Duration) * 100}%`;
-
-            if (safeDrivingTimer >= safeDrivingInterval) {
-                safeDrivingTimer = 0;
-                level2TotalTime += safeDrivingBonus;
-                showFeedback(`+${safeDrivingBonus}s`, '#4CAF50');
-            }
-            if (level2TotalTime <= 0) {
-                endLevel2(false);
-            }
-            if (elapsedTime >= level2Duration) {
-                endLevel2(true);
-            }
-        }, 100);
-        gameIntervals.push(mainInterval);
-
-        const roadObjectInterval = setInterval(createRoadObject_L2, 1200);
-        gameIntervals.push(roadObjectInterval);
-        const gameLoop2 = setInterval(checkTruckCollisions_L2, 1000 / 60);
-        gameIntervals.push(gameLoop2);
-        
-        function checkTruckCollisions_L2() { if (gameState !== 'playing') return; gameAreas.level2.querySelectorAll('.obstacle').forEach(obj => { obj.style.top = `${obj.offsetTop + 5}px`; if (obj.offsetTop > gameAreas.level2.offsetHeight) obj.remove(); }); if (hitCooldown) return; const truckRect = playerElements.truck.getBoundingClientRect(); gameAreas.level2.querySelectorAll('.obstacle').forEach(obj => { const objRect = obj.getBoundingClientRect(); if (truckRect.left < objRect.right && truckRect.right > objRect.left && truckRect.top < objRect.bottom && truckRect.bottom > objRect.top) { obj.remove(); triggerHitPenalty(); } }); }
-        function triggerHitPenalty() { hitCooldown = true; safeDrivingTimer = 0; level2TotalTime -= penaltyPerCollision; showFeedback(`-${penaltyPerCollision}s`, '#ff4d4d'); playerElements.truck.classList.add('hit'); setTimeout(() => { playerElements.truck.classList.remove('hit'); hitCooldown = false; }, 1000); }
+        gameState.level = 2;
+        gameState.current = 'playing';
+        lastTime = performance.now();
+        level2ObjectTimer = 0;
+        level2ElapsedTime = 0;
+        level2SafeDrivingTimer = 0;
+        gameState.animationFrameId = requestAnimationFrame(gameLoop);
     }
-    
     function createRoadObject_L2() { const keys = Object.keys(roadObjectTypes); const key = keys[Math.floor(Math.random() * keys.length)]; const data = roadObjectTypes[key]; const el = document.createElement('div'); el.className = 'obstacle'; el.style.width = `${data.size}px`; el.style.height = `${data.size}px`; el.style.backgroundImage = `url(${data.img})`; el.style.left = `${Math.random() * (gameAreas.level2.offsetWidth - data.size)}px`; el.style.top = `-${data.size}px`; gameAreas.level2.appendChild(el); }
+    function moveRoadObjects_L2(deltaTime) { gameAreas.level2.querySelectorAll('.obstacle').forEach(obj => { obj.style.top = `${obj.offsetTop + 300 * deltaTime}px`; if (obj.offsetTop > gameAreas.level2.offsetHeight) obj.remove(); }); }
+    function checkTruckCollisions_L2() { if (gameState.hitCooldown || gameState.current !== 'playing') return; const truckRect = playerElements.truck.getBoundingClientRect(); gameAreas.level2.querySelectorAll('.obstacle').forEach(obj => { const objRect = obj.getBoundingClientRect(); if (truckRect.left < objRect.right && truckRect.right > objRect.left && truckRect.top < objRect.bottom && truckRect.bottom > objRect.top) { obj.remove(); triggerHitPenalty(); } }); }
+    function triggerHitPenalty() { gameState.hitCooldown = true; level2SafeDrivingTimer = 0; gameState.level2TotalTime -= PENALTY_PER_COLLISION; showFeedback(`-${PENALTY_PER_COLLISION}s`, '#ff4d4d'); playerElements.truck.classList.add('hit'); setTimeout(() => { playerElements.truck.classList.remove('hit'); gameState.hitCooldown = false; }, 1000); }
     function showFeedback(text, color) { const el = displays.feedbackText; el.textContent = text; el.style.color = color; el.style.opacity = 1; setTimeout(() => { el.style.opacity = 0; }, 1000); }
     
     function endLevel2(isSuccess) {
-        if (gameState !== 'playing') return;
-        gameState = 'ended';
-        gameIntervals.forEach(clearInterval);
-        gameIntervals = [];
-
-        const lang = translations[currentLanguage];
-        const timeBonus = (level2TotalTime > 0) ? Math.floor(level2TotalTime * 100) : 0;
-        finalScoreValue = score + timeBonus;
-
+        if (gameState.current !== 'playing') return;
+        gameState.current = 'ended';
+        cancelAnimationFrame(gameState.animationFrameId);
+        const lang = translations[gameState.currentLanguage];
         if (isSuccess) {
+            const timeBonus = (gameState.level2TotalTime > 0) ? Math.floor(gameState.level2TotalTime * 100) : 0;
+            gameState.finalScore = gameState.score + timeBonus;
             displays.endTitle.textContent = lang.success_title;
-            displays.endDetails.innerHTML = `<p>${lang.success_details_win}: ${level2TotalTime.toFixed(1)}s × 100 = +${bonus}</p>`;
+            displays.endDetails.innerHTML = `<p>${lang.success_details_win}: ${gameState.level2TotalTime.toFixed(1)}s × 100 = +${timeBonus}</p>`;
         } else {
+            gameState.finalScore = gameState.score; // No bonus if time runs out
             displays.endTitle.textContent = lang.fail_title;
             displays.endDetails.innerHTML = `<p>${lang.fail_details_l2}</p>`;
         }
         showScreen('success');
     }
-
-    function gameOver(isL1Fail = false) {
-        const lang = translations[currentLanguage];
+    
+    // ----- 游戏结束与计分 -----
+    async function gameOver(isL1Fail = false) {
+        const lang = translations[gameState.currentLanguage];
         if (isL1Fail) {
             displays.finalScoreTitle.textContent = lang.fail_details_l1;
-            displays.finalScore.textContent = '';
         } else {
-            displays.finalScoreTitle.innerHTML = `<span data-lang-key="final_score">${lang.final_score}</span>: <span>${finalScoreValue}</span>`;
-            if (finalScoreValue > 0) {
-                updateLeaderboard(playerName, finalScoreValue);
+            displays.finalScoreTitle.innerHTML = `<span data-lang-key="final_score">${lang.final_score}</span>: <span>${gameState.finalScore}</span>`;
+            if (gameState.finalScore > 0) {
+                await updateLeaderboard(gameState.playerName, gameState.finalScore);
             }
         }
         showScreen('gameOver');
         displayLeaderboard(displays.leaderboardList);
     }
 
-    function calculateFinalScore() { gameOver(); }
-    
-    async function updateLeaderboard(name, newScore) { try { await db.collection("leaderboard").add({ name: name, score: newScore, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); console.log("Score submitted!"); } catch (error) { console.error("Error adding document: ", error); } }
-    function listenForLeaderboardChanges() { db.collection("leaderboard").orderBy("score", "desc").limit(10).onSnapshot((snapshot) => { cachedLeaderboard = snapshot.docs.map(doc => doc.data()); if (screens.leaderboard.classList.contains('active')) displayLeaderboard(displays.leaderboardListDisplay); if (screens.gameOver.classList.contains('active')) displayLeaderboard(displays.leaderboardList); }, (error) => console.error(error)); }
-    function displayLeaderboard(listElement) { const lang = translations[currentLanguage]; listElement.innerHTML = ''; if (cachedLeaderboard.length === 0) { listElement.innerHTML = `<li>${lang.leaderboard_empty}</li>`; return; } cachedLeaderboard.forEach((entry, index) => { const li = document.createElement('li'); const safeName = document.createTextNode(entry.name).textContent; li.innerHTML = `<span>${index + 1}. ${safeName}</span><span>${entry.score}</span>`; listElement.appendChild(li); }); }
+    async function updateLeaderboard(name, newScore) { try { await db.collection("leaderboard").add({ name: name, score: newScore, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); console.log("Score submitted!"); } catch (error) { console.error("Error submitting score: ", error); } }
+    function listenForLeaderboardChanges() { db.collection("leaderboard").orderBy("score", "desc").limit(10).onSnapshot((snapshot) => { gameState.cachedLeaderboard = snapshot.docs.map(doc => doc.data()); if (screens.leaderboard.classList.contains('active')) displayLeaderboard(displays.leaderboardListDisplay); if (screens.gameOver.classList.contains('active')) displayLeaderboard(displays.leaderboardList); }, (error) => console.error(error)); }
+    function displayLeaderboard(listElement) { const lang = translations[gameState.currentLanguage]; listElement.innerHTML = ''; if (gameState.cachedLeaderboard.length === 0) { listElement.innerHTML = `<li>${lang.leaderboard_empty}</li>`; return; } gameState.cachedLeaderboard.forEach((entry, index) => { const li = document.createElement('li'); const safeName = document.createTextNode(entry.name).textContent; li.innerHTML = `<span>${index + 1}. ${safeName}</span><span>${entry.score}</span>`; listElement.appendChild(li); }); }
     
     function movePlayer(element, x) { const parent = element.parentElement; const parentWidth = parent.offsetWidth; const playerWidth = element.offsetWidth; let newLeft = x - playerWidth / 2; if (newLeft < 0) newLeft = 0; if (newLeft > parentWidth - playerWidth) newLeft = parentWidth - playerWidth; element.style.left = `${newLeft}px`; }
     function generateInstructions() {
-        const lang = currentLanguage;
+        const lang = gameState.currentLanguage;
+        const langPack = translations[lang];
         let partsList = '';
-        Object.keys(itemTypes).forEach(key => {
-            const item = itemTypes[key];
-            const scoreText = (item.score > 0 ? '+' : '') + item.score;
-            const style = item.score < 0 ? 'style="color: #ffdddd;"' : '';
-            partsList += `<li ${style}>${item.name[lang]}: ${scoreText}</li>`;
-        });
+        Object.keys(itemTypes).forEach(key => { const item = itemTypes[key]; const scoreText = (item.score > 0 ? '+' : '') + item.score; const style = item.score < 0 ? 'style="color: #ffdddd;"' : ''; partsList += `<li ${style}>${item.name[lang]}: ${scoreText}</li>`; });
         const l1Title = lang === 'zh' ? '第一关：零件收集' : 'Level 1: Part Collector';
-        const l1Goal = lang === 'zh' ? `在30秒内达到<strong>${targetScore}分</strong>！` : `Score <strong>${targetScore} points</strong> in 30s!`;
+        const l1Goal = lang === 'zh' ? `在30秒内达到<strong>${TARGET_SCORE}分</strong>！` : `Score <strong>${TARGET_SCORE} points</strong> in 30s!`;
         const l2Title = lang === 'zh' ? '第二关：动态行程挑战' : 'Level 2: Dynamic Journey';
         const l2Goal = lang === 'zh' ? '在<strong>总时间耗尽前</strong>抵达终点！' : 'Reach the finish line <strong>before time runs out!</strong>';
-        const l2Bonus = lang === 'zh' ? `每连续安全驾驶8秒，<strong>总时间+${safeDrivingBonus}秒</strong>！` : `For every 8s of safe driving, gain <strong>+${safeDrivingBonus}s</strong>!`;
-        const l2Penalty = lang === 'zh' ? `每次碰撞，<strong>总时间-${penaltyPerCollision}秒</strong>！` : `Each collision deducts <strong>${penaltyPerCollision}s</strong>!`;
+        const l2Bonus = lang === 'zh' ? `每连续安全驾驶8秒，<strong>总时间+${SAFE_DRIVING_BONUS}秒</strong>！` : `For every 8s of safe driving, gain <strong>+${SAFE_DRIVING_BONUS}s</strong>!`;
+        const l2Penalty = lang === 'zh' ? `每次碰撞，<strong>总时间-${PENALTY_PER_COLLISION}秒</strong>！` : `Each collision deducts <strong>${PENALTY_PER_COLLISION}s</strong>!`;
         const l2Score = lang === 'zh' ? `<code>第一关分数 + (剩余秒数 × 100)</code>` : `<code>Lvl 1 Score + (Time Left × 100)</code>`;
         displays.instructionsContent.innerHTML = `<h3>${l1Title}</h3><p><strong>${lang === 'zh' ? '目标' : 'Goal'}:</strong> ${l1Goal}</p><ul>${partsList}</ul><hr><h3>${l2Title}</h3><p><strong>${lang === 'zh' ? '目标' : 'Goal'}:</strong> ${l2Goal}</p><p><strong>${lang === 'zh' ? '奖励' : 'Bonus'}:</strong> ${l2Bonus}</p><p><strong>${lang === 'zh' ? '惩罚' : 'Penalty'}:</strong> ${l2Penalty}</p><p><strong>${lang === 'zh' ? '最终得分' : 'Final Score'} = </strong>${l2Score}</p>`;
     }
-
-    gameAreas.level1.addEventListener('touchmove', (e) => { e.preventDefault(); movePlayer(playerElements.box, e.touches[0].clientX); }, { passive: false });
-    gameAreas.level1.addEventListener('mousemove', (e) => { if (e.buttons === 1) movePlayer(playerElements.box, e.clientX); });
-    gameAreas.level2.addEventListener('touchmove', (e) => { e.preventDefault(); movePlayer(playerElements.truck, e.touches[0].clientX); }, { passive: false });
-    gameAreas.level2.addEventListener('mousemove', (e) => { if (e.buttons === 1) movePlayer(playerElements.truck, e.clientX); });
 
     init();
 });

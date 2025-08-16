@@ -1,15 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
-// ----- Firebase & UI Elements -----
-const firebaseConfig = { 
-    apiKey: "AIzaSyDQ_sNfeyHbZAJU1cIJ-Vt9b5E1FlE8a60", 
-    authDomain: "benz-parts-road.firebaseapp.com", 
-    projectId: "benz-parts-road", 
-    storageBucket: "benz-parts-road.firebasestorage.app", 
-    messagingSenderId: "423603206033", 
-    appId: "1:423603206033:web:1c280e79a1ee618b260c30" 
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+// ----- LeanCloud & UI Elements -----
+// 初始化LeanCloud
+AV.init({
+  appId: "5femOCktvnOHNk8x7B5kVyim-gzGzoHsz",
+  appKey: "I6UIDXRDue7wXJHpK1yaQqrY",
+  serverURL: "https://5femockt.lc-cn-n1-shared.com"
+});
+
 const screens = { 
     start: document.getElementById('start-screen'), 
     instructions: document.getElementById('instructions-screen'), 
@@ -57,12 +54,12 @@ let finalScore = 0;
 let level1Timer = 30;
 let level2TotalTime = 35;
 let hitCooldown = false;
-let level2SafeDrivingTimer = 0; // 添加这个变量，之前代码中缺少定义
+let level2SafeDrivingTimer = 0;
 let cachedLeaderboard = [];
 let currentLanguage = 'zh';
 let gameIntervals = [];
 let currentLevel; 
-let isMobile = /Mobi|Android/i.test(navigator.userAgent); // 检测是否为移动设备
+let isMobile = /Mobi|Android/i.test(navigator.userAgent);
 
 // ----- 游戏常量与数据 -----
 const TARGET_SCORE = 500;
@@ -109,58 +106,36 @@ function init() {
     document.getElementById('start-screen').prepend(langSwitcherContainer); 
     updateUIText(); 
     listenForLeaderboardChanges(); 
+    loadLeaderboardData(); // 初始加载排行榜数据
     
-    // 主动获取数据的调用，确保初始化时能获取到数据
-    db.collection("leaderboard")
-        .orderBy("score", "desc")
-        .limit(10)
-        .get()
-        .then((snapshot) => {
-            cachedLeaderboard = snapshot.docs.map(doc => {
-                const data = doc.data();
-                return {
-                    ...data,
-                    score: Number(data.score)
-                };
-            });
-            console.log("初始排行榜数据加载完成: ", cachedLeaderboard.length, "条记录");
-        })
-        .catch((error) => {
-            console.error("获取初始排行榜数据失败: ", error);
-            showFeedback(
-                currentLanguage === 'zh' ? '排行榜加载失败' : 'Failed to load leaderboard', 
-                '#ff4d4d'
-            );
-        });
-        
     movePlayer(playerElements.box, window.innerWidth / 2); 
     movePlayer(playerElements.truck, window.innerWidth / 2); 
     
-    // 为按钮添加防抖动处理，增强移动端体验
-    buttons.startGame.addEventListener('click', debounce(() => { 
+    // 按钮事件绑定
+    buttons.startGame.addEventListener('click', () => { 
         modals.nameEntry.style.display = 'flex'; 
-    }, 300)); 
+    }); 
     
-    buttons.confirmName.addEventListener('click', debounce(() => { 
+    buttons.confirmName.addEventListener('click', () => { 
         const name = playerNameInput.value.trim(); 
         if (name) { 
-            playerName = name.substring(0, 10); // 限制最大长度
+            playerName = name.substring(0, 10);
             modals.nameEntry.style.display = 'none'; 
             startGame(); 
         } else { 
             alert(currentLanguage === 'zh' ? '请输入你的名字！' : 'Please enter your name!'); 
         } 
-    }, 300)); 
+    }); 
     
-    buttons.instructions.addEventListener('click', debounce(() => showScreen('instructions'), 300)); 
-    buttons.leaderboard.addEventListener('click', debounce(() => { 
+    buttons.instructions.addEventListener('click', () => showScreen('instructions')); 
+    buttons.leaderboard.addEventListener('click', () => { 
         showScreen('leaderboard'); 
         displayLeaderboard(displays.leaderboardListDisplay); 
-    }, 300)); 
+    }); 
     
-    buttons.backToMenu.forEach(btn => btn.addEventListener('click', debounce(() => showScreen('start'), 300))); 
-    buttons.restartGame.addEventListener('click', debounce(() => { showScreen('start'); }, 300)); 
-    buttons.continueToLeaderboard.addEventListener('click', debounce(() => gameOver(), 300)); 
+    buttons.backToMenu.forEach(btn => btn.addEventListener('click', () => showScreen('start'))); 
+    buttons.restartGame.addEventListener('click', () => showScreen('start')); 
+    buttons.continueToLeaderboard.addEventListener('click', () => gameOver()); 
     
     document.getElementById('lang-switcher').addEventListener('click', (e) => { 
         if (e.target.tagName === 'BUTTON') { 
@@ -174,7 +149,7 @@ function init() {
         } 
     }); 
     
-    // 增强移动端触摸事件处理
+    // 触摸和鼠标控制
     gameAreas.level1.addEventListener('touchmove', (e) => { 
         e.preventDefault(); 
         if (e.touches && e.touches[0]) {
@@ -243,8 +218,8 @@ function startLevel1() {
     }, 1000); 
     gameIntervals.push(countdown);
     
-    // 移动设备降低生成速度，提高游戏体验
-    const itemInterval = isMobile ? 800 : 650;
+    // 调整物品生成速度，避免过多元素导致卡顿
+    const itemInterval = isMobile ? 1000 : 700;
     const itemFall = setInterval(createItem_L1, itemInterval); 
     gameIntervals.push(itemFall);
     
@@ -342,8 +317,8 @@ function startLevel2() {
     }, 100);
     gameIntervals.push(mainInterval);
 
-    // 移动设备调整障碍物生成速度
-    const obstacleInterval = isMobile ? 1500 : 1200;
+    // 调整障碍物生成速度，减少卡顿
+    const obstacleInterval = isMobile ? 1800 : 1500;
     const roadObjectInterval = setInterval(createRoadObject_L2, obstacleInterval);
     gameIntervals.push(roadObjectInterval);
     
@@ -421,9 +396,7 @@ function endLevel2(isSuccess) {
         displays.endDetails.innerHTML = `<p>${lang.fail_details_l2}</p>`;
     }
     
-    // 提交分数，增加延迟确保在移动设备上完成
     updateLeaderboard(playerName, finalScore);
-    
     showScreen('success');
 }
 
@@ -436,25 +409,9 @@ function gameOver(isL1Fail = false) {
         displays.finalScoreTitle.innerHTML = `<span data-lang-key="final_score">${lang.final_score}</span>: <span>${finalScore}</span>`;
     }
     
-    // 确保排行榜数据已加载
     if (cachedLeaderboard.length === 0) {
         displays.leaderboardList.innerHTML = `<li>${currentLanguage === 'zh' ? '正在加载排行榜...' : 'Loading leaderboard...'}</li>`;
-        // 手动触发一次数据加载
-        db.collection("leaderboard")
-            .orderBy("score", "desc")
-            .limit(10)
-            .get()
-            .then((snapshot) => {
-                cachedLeaderboard = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    return { ...data, score: Number(data.score) };
-                });
-                displayLeaderboard(displays.leaderboardList);
-            })
-            .catch(error => {
-                console.error("游戏结束时加载排行榜失败: ", error);
-                displays.leaderboardList.innerHTML = `<li>${currentLanguage === 'zh' ? '加载失败，请重试' : 'Failed to load, please retry'}</li>`;
-            });
+        loadLeaderboardData();
     } else {
         displayLeaderboard(displays.leaderboardList);
     }
@@ -462,39 +419,23 @@ function gameOver(isL1Fail = false) {
     showScreen('gameOver');
 }
 
-// 增强版：确保分数提交可靠性，特别是在移动端
+// LeanCloud 分数提交
 async function updateLeaderboard(name, newScore) { 
     try { 
-        // 显示提交中提示
         showFeedback(currentLanguage === 'zh' ? '正在提交分数...' : 'Submitting score...', '#ffff00');
         
-        // 确保分数是数字类型
-        const scoreNumber = Number(newScore);
+        const Leaderboard = AV.Object.extend('Leaderboard');
+        const entry = new Leaderboard();
+        entry.set('name', name);
+        entry.set('score', Number(newScore));
+        entry.set('device', isMobile ? 'mobile' : 'desktop');
         
-        // 添加设备信息用于调试
-        const submissionData = { 
-            name: name, 
-            score: scoreNumber, 
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            device: isMobile ? 'mobile' : 'desktop',
-            timestamp: new Date().getTime() // 添加客户端时间戳用于调试
-        };
-        
-        // 移动设备增加延迟，确保提交完成
-        if (isMobile) {
-            await new Promise(resolve => setTimeout(resolve, 800));
-        }
-        
-        const docRef = await db.collection("leaderboard").add(submissionData); 
-        console.log("分数提交成功，ID: ", docRef.id);
-        
+        await entry.save();
+        console.log("分数提交成功，ID: ", entry.id);
         showFeedback(currentLanguage === 'zh' ? '分数提交成功！' : 'Score submitted!', '#4CAF50');
         
-        // 提交成功后再等待一段时间，确保在页面跳转前完成
-        await new Promise(resolve => setTimeout(resolve, 500));
     } catch (error) { 
         console.error("分数提交失败: ", error); 
-        // 向用户显示错误信息
         showFeedback(
             currentLanguage === 'zh' ? '提交失败，请检查网络' : 'Submission failed, check network', 
             '#ff4d4d'
@@ -502,82 +443,66 @@ async function updateLeaderboard(name, newScore) {
     } 
 }
 
-// 增强版：添加重试机制，确保移动端能稳定获取数据
+// LeanCloud 排行榜监听
 function listenForLeaderboardChanges() { 
-    let listener;
-    const startListening = () => {
-        // 移除之前的监听器
-        if (listener) {
-            try {
-                listener();
-            } catch (error) {
-                console.error("移除监听器失败: ", error);
-            }
-        }
-        
-        console.log("开始监听排行榜变化...");
-        listener = db.collection("leaderboard")
-            .orderBy("score", "desc")
-            .limit(10)
-            .onSnapshot(
-                (snapshot) => { 
-                    cachedLeaderboard = snapshot.docs.map(doc => {
-                        const data = doc.data();
-                        return {
-                            id: doc.id, // 保存文档ID用于调试
-                            ...data,
-                            score: Number(data.score)
-                        };
-                    }); 
-                    
-                    // 刷新可见的积分榜
-                    if (screens.leaderboard.classList.contains('active')) {
-                        displayLeaderboard(displays.leaderboardListDisplay);
-                    }
-                    if (screens.gameOver.classList.contains('active')) {
-                        displayLeaderboard(displays.leaderboardList);
-                    }
-                    
-                    console.log("排行榜更新，共", cachedLeaderboard.length, "条记录");
-                }, 
-                (error) => {
-                    console.error("排行榜监听错误: ", error);
-                    showFeedback(
-                        currentLanguage === 'zh' ? '排行榜加载失败，重试中...' : 'Leaderboard failed, retrying...', 
-                        '#ff4d4d'
-                    );
-                    // 5秒后重试
-                    setTimeout(startListening, 5000);
-                }
-            );
-    };
+    const query = new AV.Query('Leaderboard');
+    query.descending('score');
+    query.limit(10);
     
-    startListening();
+    const subscription = query.subscribe();
+    subscription.on('update', () => {
+        loadLeaderboardData();
+    });
 }
 
-// 增强版：显示排行榜，增加调试信息
+// 加载排行榜数据
+async function loadLeaderboardData() {
+    try {
+        const query = new AV.Query('Leaderboard');
+        query.descending('score');
+        query.limit(10);
+        const results = await query.find();
+        
+        cachedLeaderboard = results.map(item => ({
+            name: item.get('name') || '匿名',
+            score: item.get('score') || 0,
+            id: item.id
+        }));
+        
+        if (screens.leaderboard.classList.contains('active')) {
+            displayLeaderboard(displays.leaderboardListDisplay);
+        }
+        if (screens.gameOver.classList.contains('active')) {
+            displayLeaderboard(displays.leaderboardList);
+        }
+        
+    } catch (error) {
+        console.error("加载排行榜失败: ", error);
+        showFeedback(
+            currentLanguage === 'zh' ? '排行榜加载失败' : 'Failed to load leaderboard', 
+            '#ff4d4d'
+        );
+    }
+}
+
+// 显示排行榜
 function displayLeaderboard(listElement) { 
     const lang = translations[currentLanguage]; 
     listElement.innerHTML = ''; 
     
     if (cachedLeaderboard.length === 0) { 
         listElement.innerHTML = `<li>${lang.leaderboard_empty}</li>`;
-        console.log("排行榜为空");
         return; 
     } 
     
-    // 确保数据已排序
     const sortedLeaderboard = [...cachedLeaderboard].sort((a, b) => b.score - a.score);
     
     sortedLeaderboard.forEach((entry, index) => { 
         const li = document.createElement('li'); 
-        // 安全处理名字，防止XSS
         const safeName = entry.name ? document.createTextNode(entry.name).textContent : 'Anonymous';
         li.innerHTML = `<span>${index + 1}. ${safeName}</span><span>${entry.score}</span>`;
         listElement.appendChild(li); 
     });
-    
-    console.log("显示排行榜，共", sortedLeaderboard.length, "条记录");
 }
 
 function movePlayer(element, x) { 
@@ -609,16 +534,6 @@ function generateInstructions() {
     displays.instructionsContent.innerHTML = `<h3>${l1Title}</h3><p><strong>${lang === 'zh' ? '目标' : 'Goal'}:</strong> ${l1Goal}</p><ul>${partsList}</ul><hr><h3>${l2Title}</h3><p><strong>${lang === 'zh' ? '目标' : 'Goal'}:</strong> ${l2Goal}</p><p><strong>${lang === 'zh' ? '奖励' : 'Bonus'}:</strong> ${l2Bonus}</p><p><strong>${lang === 'zh' ? '惩罚' : 'Penalty'}:</strong> ${l2Penalty}</p><p><strong>${lang === 'zh' ? '最终得分' : 'Final Score'} = </strong>${l2Score}</p>`;
 }
 
-// 工具函数：防抖动，解决移动端点击事件触发多次的问题
-function debounce(func, wait) {
-    let timeout;
-    return function() {
-        const context = this;
-        const args = arguments;
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(context, args), wait);
-    };
-}
-
 init();
 });
+

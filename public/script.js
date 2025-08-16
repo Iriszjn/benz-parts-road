@@ -26,14 +26,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const SAFE_DRIVING_BONUS = 2;
     const LEVEL_2_DURATION = 30;
     const itemTypes = {
-        engine: { name: { zh: '发动机', en: 'Engine' }, score: 50, speed: 4, size: 100 },
-        battery: { name: { zh: '汽车电池', en: 'Battery' }, score: 40, speed: 4, size: 50 },
-        tire: { name: { zh: '轮胎', en: 'Tire' }, score: 10, speed: 3, size: 70 },
-        brake_disc: { name: { zh: '刹车盘', en: 'Brake Disc' }, score: 20, speed: 4, size: 65 },
-        piston: { name: { zh: '活塞', en: 'Piston' }, score: 15, speed: 3, size: 60 },
-        star: { name: { zh: '奔驰星徽', en: 'Star' }, score: 30, speed: 5, size: 60 },
-        oil: { name: { zh: '废油桶', en: 'Oil Barrel' }, score: -20, speed: 4, size: 65 },
-        screw: { name: { zh: '螺丝', en: 'Screw' }, score: 1, speed: 2, size: 30 }
+        engine: { name: { zh: '发动机', en: 'Engine' }, score: 50, speed: 4, size: 100, img: 'images/engine.png' },
+        battery: { name: { zh: '汽车电池', en: 'Battery' }, score: 40, speed: 4, size: 50, img: 'images/battery.png' },
+        tire: { name: { zh: '轮胎', en: 'Tire' }, score: 10, speed: 3, size: 70, img: 'images/tire.png' },
+        brake_disc: { name: { zh: '刹车盘', en: 'Brake Disc' }, score: 20, speed: 4, size: 65, img: 'images/brake_disc.png' },
+        piston: { name: { zh: '活塞', en: 'Piston' }, score: 15, speed: 3, size: 60, img: 'images/piston.png' },
+        star: { name: { zh: '奔驰星徽', en: 'Star' }, score: 30, speed: 5, size: 60, img: 'images/star.png' },
+        oil: { name: { zh: '废油桶', en: 'Oil Barrel' }, score: -20, speed: 4, size: 65, img: 'images/oil_barrel.png' },
+        screw: { name: { zh: '螺丝', en: 'Screw' }, score: 1, speed: 2, size: 30, img: 'images/screw.png' }
     };
     const level1WeightedItems = ['engine', 'battery', 'battery', 'tire', 'tire', 'tire', 'brake_disc', 'brake_disc', 'piston', 'piston', 'piston', 'star', 'star', 'screw', 'screw', 'screw', 'oil', 'oil', 'oil', 'oil'];
     const roadObjectTypes = { cone: { img: 'images/obstacle.png', size: 50 }, car_obstacle_red: { img: 'images/car_obstacle_red.png', size: 55 }, car_obstacle_blue: { img: 'images/car_obstacle_blue.png', size: 55 } };
@@ -106,11 +106,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             level2ObjectTimer += deltaTime;
             if (level2ObjectTimer >= 1.2) { level2ObjectTimer = 0; createRoadObject_L2(); }
-            
-            // <<<--- THE FIX IS HERE: These functions are now correctly called inside the loop
             moveRoadObjects_L2(deltaTime);
             checkTruckCollisions_L2();
-            
             if (level2TotalTime <= 0) { endLevel2(false); return; }
             if (level2ElapsedTime >= LEVEL_2_DURATION) { endLevel2(true); return; }
         }
@@ -119,20 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ----- 关卡一 -----
     function startLevel1() { gameState.level = 1; gameState.current = 'playing'; lastTime = 0; level1ItemTimer = 0; level1SecondCounter = 0; gameState.animationFrameId = requestAnimationFrame(gameLoop); }
-    function createItem_L1() {
-        const key = level1WeightedItems[Math.floor(Math.random() * level1WeightedItems.length)];
-        const data = itemTypes[key];
-        const el = document.createElement('div');
-        el.className = 'item';
-        el.style.width = `${data.size}px`;
-        el.style.height = `${data.size}px`;
-        el.style.backgroundImage = `url(${data.img})`;
-        el.style.left = `${Math.random() * (gameAreas.level1.offsetWidth - data.size)}px`;
-        el.style.top = `-${data.size}px`;
-        el.dataset.speed = data.speed * 60;
-        el.dataset.type = key;
-        gameAreas.level1.appendChild(el);
-    }
+    function createItem_L1() { const key = level1WeightedItems[Math.floor(Math.random() * level1WeightedItems.length)]; const data = itemTypes[key]; const el = document.createElement('div'); el.className = 'item'; el.style.width = `${data.size}px`; el.style.height = `${data.size}px`; el.style.backgroundImage = `url(${data.img})`; el.style.left = `${Math.random() * (gameAreas.level1.offsetWidth - data.size)}px`; el.style.top = `-${data.size}px`; el.dataset.speed = data.speed * 60; el.dataset.type = key; gameAreas.level1.appendChild(el); }
     function moveItems_L1(deltaTime) { gameAreas.level1.querySelectorAll('.item').forEach(item => { item.style.top = `${item.offsetTop + parseFloat(item.dataset.speed) * deltaTime}px`; if (item.offsetTop > gameAreas.level1.offsetHeight) item.remove(); }); }
     function checkCollisions_L1() { if (gameState.current !== 'playing') return; const boxRect = playerElements.box.getBoundingClientRect(); gameAreas.level1.querySelectorAll('.item').forEach(item => { const itemRect = item.getBoundingClientRect(); if (boxRect.left < itemRect.right && boxRect.right > itemRect.left && boxRect.top < itemRect.bottom && boxRect.bottom > itemRect.top) { handleCollision_L1(item); item.remove(); } }); }
     function handleCollision_L1(item) { const data = itemTypes[item.dataset.type]; gameState.score += data.score; displays.score.textContent = gameState.score; if(item.dataset.type === 'oil') { document.body.style.filter = 'blur(3px)'; setTimeout(() => { document.body.style.filter = 'none'; }, 500); } }
@@ -165,10 +149,12 @@ document.addEventListener('DOMContentLoaded', () => {
         showScreen('success');
     }
     
+    // ----- 游戏结束与计分 -----
     async function gameOver(isL1Fail = false) {
         const lang = translations[gameState.currentLanguage];
         if (isL1Fail) {
             displays.finalScoreTitle.textContent = lang.fail_details_l1;
+            displays.finalScore.textContent = '';
         } else {
             displays.finalScoreTitle.innerHTML = `<span data-lang-key="final_score">${lang.final_score}</span>: <span>${gameState.finalScore}</span>`;
             if (gameState.finalScore > 0) {

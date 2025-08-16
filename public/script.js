@@ -26,14 +26,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const SAFE_DRIVING_BONUS = 2;
     const LEVEL_2_DURATION = 30;
     const itemTypes = {
-        engine: { name: { zh: '发动机', en: 'Engine' }, score: 50, speed: 4, size: 100 },
-        battery: { name: { zh: '汽车电池', en: 'Battery' }, score: 40, speed: 4, size: 50 },
-        tire: { name: { zh: '轮胎', en: 'Tire' }, score: 10, speed: 3, size: 70 },
-        brake_disc: { name: { zh: '刹车盘', en: 'Brake Disc' }, score: 20, speed: 4, size: 65 },
-        piston: { name: { zh: '活塞', en: 'Piston' }, score: 15, speed: 3, size: 60 },
-        star: { name: { zh: '奔驰星徽', en: 'Star' }, score: 30, speed: 5, size: 60 },
-        oil: { name: { zh: '废油桶', en: 'Oil Barrel' }, score: -20, speed: 4, size: 65 },
-        screw: { name: { zh: '螺丝', en: 'Screw' }, score: 1, speed: 2, size: 30 }
+        engine: { name: { zh: '发动机', en: 'Engine' }, score: 50, speed: 4, size: 100, img: 'images/engine.png' },
+        battery: { name: { zh: '汽车电池', en: 'Battery' }, score: 40, speed: 4, size: 50, img: 'images/battery.png' },
+        tire: { name: { zh: '轮胎', en: 'Tire' }, score: 10, speed: 3, size: 70, img: 'images/tire.png' },
+        brake_disc: { name: { zh: '刹车盘', en: 'Brake Disc' }, score: 20, speed: 4, size: 65, img: 'images/brake_disc.png' },
+        piston: { name: { zh: '活塞', en: 'Piston' }, score: 15, speed: 3, size: 60, img: 'images/piston.png' },
+        star: { name: { zh: '奔驰星徽', en: 'Star' }, score: 30, speed: 5, size: 60, img: 'images/star.png' },
+        oil: { name: { zh: '废油桶', en: 'Oil Barrel' }, score: -20, speed: 4, size: 65, img: 'images/oil_barrel.png' },
+        screw: { name: { zh: '螺丝', en: 'Screw' }, score: 1, speed: 2, size: 30, img: 'images/screw.png' }
     };
     const level1WeightedItems = ['engine', 'battery', 'battery', 'tire', 'tire', 'tire', 'brake_disc', 'brake_disc', 'piston', 'piston', 'piston', 'star', 'star', 'screw', 'screw', 'screw', 'oil', 'oil', 'oil', 'oil'];
     const roadObjectTypes = { cone: { img: 'images/obstacle.png', size: 50 }, car_obstacle_red: { img: 'images/car_obstacle_red.png', size: 55 }, car_obstacle_blue: { img: 'images/car_obstacle_blue.png', size: 55 } };
@@ -140,25 +140,24 @@ document.addEventListener('DOMContentLoaded', () => {
             displays.endTitle.textContent = lang.fail_title;
             displays.endDetails.innerHTML = `<p>${lang.fail_details_l2}</p>`;
         }
+        if (gameState.finalScore > 0) {
+            updateLeaderboard(gameState.playerName, gameState.finalScore);
+        }
         showScreen('success');
     }
     
-    // ----- 游戏结束与计分 -----
-    async function gameOver(isL1Fail = false) {
+    function gameOver(isL1Fail = false) {
         const lang = translations[gameState.currentLanguage];
         displays.finalScoreTitle.style.display = 'block';
         if (isL1Fail) {
             displays.finalScoreTitle.textContent = lang.fail_details_l1;
         } else {
             displays.finalScoreTitle.innerHTML = `<span data-lang-key="final_score">${lang.final_score}</span>: <span>${gameState.finalScore}</span>`;
-            if (gameState.finalScore > 0) {
-                await updateLeaderboard(gameState.playerName, gameState.finalScore);
-            }
         }
         showScreen('gameOver');
         displayLeaderboard(displays.leaderboardList);
     }
-
+    
     async function updateLeaderboard(name, newScore) { try { await db.collection("leaderboard").add({ name: name, score: newScore, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); console.log("Score submitted!"); } catch (error) { console.error("Error submitting score: ", error); } }
     function listenForLeaderboardChanges() { db.collection("leaderboard").orderBy("score", "desc").limit(10).onSnapshot((snapshot) => { gameState.cachedLeaderboard = snapshot.docs.map(doc => doc.data()); if (screens.leaderboard.classList.contains('active')) displayLeaderboard(displays.leaderboardListDisplay); if (screens.gameOver.classList.contains('active')) displayLeaderboard(displays.leaderboardList); }, (error) => console.error(error)); }
     function displayLeaderboard(listElement) { const lang = translations[gameState.currentLanguage]; listElement.innerHTML = ''; if (gameState.cachedLeaderboard.length === 0) { listElement.innerHTML = `<li>${lang.leaderboard_empty}</li>`; return; } gameState.cachedLeaderboard.forEach((entry, index) => { const li = document.createElement('li'); const safeName = document.createTextNode(entry.name).textContent; li.innerHTML = `<span>${index + 1}. ${safeName}</span><span>${entry.score}</span>`; listElement.appendChild(li); }); }

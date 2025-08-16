@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const screens = { start: document.getElementById('start-screen'), instructions: document.getElementById('instructions-screen'), game: document.getElementById('game-screen'), success: document.getElementById('level2-end-screen'), gameOver: document.getElementById('game-over-screen'), leaderboard: document.getElementById('leaderboard-screen') };
     const modals = { nameEntry: document.getElementById('name-entry-modal') };
     const buttons = { startGame: document.getElementById('start-game-btn'), instructions: document.getElementById('instructions-btn'), leaderboard: document.getElementById('leaderboard-btn'), confirmName: document.getElementById('confirm-name-btn'), backToMenu: document.querySelectorAll('.back-to-menu'), restartGame: document.getElementById('restart-game-btn'), continueToLeaderboard: document.getElementById('continue-to-leaderboard-btn') };
-    const displays = { score: document.getElementById('score'), targetScore: document.getElementById('target-score'), timer: document.getElementById('timer'), remainingTime: document.getElementById('remaining-time'), feedbackText: document.getElementById('feedback-text'), endTitle: document.getElementById('end-title'), endDetails: document.getElementById('end-details'), finalScore: document.getElementById('final-score'), finalScoreTitle: document.getElementById('final-score-title'), leaderboardList: document.getElementById('leaderboard-list'), leaderboardListDisplay: document.getElementById('leaderboard-list-display'), instructionsContent: document.getElementById('instructions-content'), progressBar: document.getElementById('progress-bar') };
+    const displays = { score: document.getElementById('score'), targetScore: document.getElementById('target-score'), timer: document.getElementById('timer'), remainingTime: document.getElementById('remaining-time'), feedbackText: document.getElementById('feedback-text'), endTitle: document.getElementById('end-title'), endDetails: document.getElementById('end-details'), finalScore: document.getElementById('final-score'), finalScoreTitle: document.getElementById('final-score-title'), leaderboardList: document.getElementById('leaderboard-list'), leaderboardListDisplay: document.getElementById('leaderboard-list-display'), instructionsContent: document.getElementById('instructions-content'), progressBar: document.getElementById('progress-bar'), progressPercentage: document.getElementById('progress-percentage') };
     const gameAreas = { level1: document.getElementById('game-area1'), level2: document.getElementById('game-area2') };
     const levels = { level1: document.getElementById('level1'), levelTransition: document.getElementById('level-transition'), level2: document.getElementById('level2') };
     const playerElements = { box: document.getElementById('player-box'), truck: document.getElementById('player-truck') };
@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ----- 游戏核心状态 -----
     let gameState = {
-        current: 'ended', playerName: "玩家", score: 0, finalScore: 0, level1Timer: 30, level2TotalTime: 35,
+        current: 'menu', playerName: "玩家", score: 0, finalScore: 0, level1Timer: 30, level2TotalTime: 35,
         hitCooldown: false, cachedLeaderboard: [], currentLanguage: 'zh', animationFrameId: null
     };
 
@@ -46,33 +46,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateUIText() { const langPack = translations[gameState.currentLanguage]; document.querySelectorAll('[data-lang-key]').forEach(el => { const key = el.getAttribute('data-lang-key'); if (langPack[key]) el.textContent = langPack[key]; }); document.querySelectorAll('[data-lang-key-placeholder]').forEach(el => { const key = el.getAttribute('data-lang-key-placeholder'); if(langPack[key]) el.placeholder = langPack[key]; }); generateInstructions(); }
     
     // ----- 初始化 -----
-    function init() {
-        document.getElementById('start-screen').prepend(langSwitcherContainer);
-        updateUIText();
-        listenForLeaderboardChanges();
-        movePlayer(playerElements.box, window.innerWidth / 2);
-        movePlayer(playerElements.truck, window.innerWidth / 2);
-        // 事件监听
-        buttons.startGame.addEventListener('click', () => { modals.nameEntry.style.display = 'flex'; });
-        buttons.confirmName.addEventListener('click', () => { const name = playerNameInput.value.trim(); if (name) { gameState.playerName = name; modals.nameEntry.style.display = 'none'; startGame(); } else { alert(gameState.currentLanguage === 'zh' ? '请输入你的名字！' : 'Please enter your name!'); } });
-        buttons.instructions.addEventListener('click', () => showScreen('instructions'));
-        buttons.leaderboard.addEventListener('click', () => { showScreen('leaderboard'); displayLeaderboard(displays.leaderboardListDisplay); });
-        buttons.backToMenu.forEach(btn => btn.addEventListener('click', () => showScreen('start')));
-        buttons.restartGame.addEventListener('click', () => { showScreen('start'); });
-        buttons.continueToLeaderboard.addEventListener('click', () => gameOver());
-        document.getElementById('lang-switcher').addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') { const lang = e.target.id.split('-')[1]; if (lang !== gameState.currentLanguage) { gameState.currentLanguage = lang; document.getElementById('lang-zh').classList.toggle('active'); document.getElementById('lang-en').classList.toggle('active'); updateUIText(); } } });
-        gameAreas.level1.addEventListener('touchmove', (e) => { e.preventDefault(); movePlayer(playerElements.box, e.touches[0].clientX); }, { passive: false });
-        gameAreas.level1.addEventListener('mousemove', (e) => { if (e.buttons === 1) movePlayer(playerElements.box, e.clientX); });
-        gameAreas.level2.addEventListener('touchmove', (e) => { e.preventDefault(); movePlayer(playerElements.truck, e.touches[0].clientX); }, { passive: false });
-        gameAreas.level2.addEventListener('mousemove', (e) => { if (e.buttons === 1) movePlayer(playerElements.truck, e.clientX); });
-    }
+    function init() { document.getElementById('start-screen').prepend(langSwitcherContainer); updateUIText(); listenForLeaderboardChanges(); movePlayer(playerElements.box, window.innerWidth / 2); movePlayer(playerElements.truck, window.innerWidth / 2); buttons.startGame.addEventListener('click', () => { modals.nameEntry.style.display = 'flex'; }); buttons.confirmName.addEventListener('click', () => { const name = playerNameInput.value.trim(); if (name) { gameState.playerName = name; modals.nameEntry.style.display = 'none'; startGame(); } else { alert(gameState.currentLanguage === 'zh' ? '请输入你的名字！' : 'Please enter your name!'); } }); buttons.instructions.addEventListener('click', () => showScreen('instructions')); buttons.leaderboard.addEventListener('click', () => { showScreen('leaderboard'); displayLeaderboard(displays.leaderboardListDisplay); }); buttons.backToMenu.forEach(btn => btn.addEventListener('click', () => showScreen('start'))); buttons.restartGame.addEventListener('click', () => { showScreen('start'); }); buttons.continueToLeaderboard.addEventListener('click', () => gameOver()); document.getElementById('lang-switcher').addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') { const lang = e.target.id.split('-')[1]; if (lang !== gameState.currentLanguage) { gameState.currentLanguage = lang; document.getElementById('lang-zh').classList.toggle('active'); document.getElementById('lang-en').classList.toggle('active'); updateUIText(); } } }); gameAreas.level1.addEventListener('touchmove', (e) => { e.preventDefault(); movePlayer(playerElements.box, e.touches[0].clientX); }, { passive: false }); gameAreas.level1.addEventListener('mousemove', (e) => { if (e.buttons === 1) movePlayer(playerElements.box, e.clientX); }); gameAreas.level2.addEventListener('touchmove', (e) => { e.preventDefault(); movePlayer(playerElements.truck, e.touches[0].clientX); }, { passive: false }); gameAreas.level2.addEventListener('mousemove', (e) => { if (e.buttons === 1) movePlayer(playerElements.truck, e.clientX); }); }
     
     // ----- 游戏流程 -----
     function showScreen(screenName) { Object.values(screens).forEach(s => s.classList.remove('active')); screens[screenName].classList.add('active'); langSwitcherContainer.style.display = (screenName === 'start') ? 'block' : 'none'; }
     function startGame() { resetGame(); showScreen('game'); startLevel1(); }
     function resetGame() {
         cancelAnimationFrame(gameState.animationFrameId);
-        gameState.current = 'ended';
+        gameState.current = 'menu';
         gameState.score = 0;
         gameState.finalScore = 0;
         gameState.level1Timer = 30;
@@ -98,18 +79,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function gameLoop(timestamp) {
         if (gameState.current !== 'playing') return;
-        
+        if (!lastTime) lastTime = timestamp;
         const deltaTime = (timestamp - lastTime) / 1000;
         lastTime = timestamp;
 
         if (gameState.level === 1) {
             level1SecondCounter += deltaTime;
-            if (level1SecondCounter >= 1) {
-                level1SecondCounter = 0;
-                gameState.level1Timer--;
-                displays.timer.textContent = Math.max(0, gameState.level1Timer);
-                if (gameState.level1Timer <= 0) { endLevel1(); return; }
-            }
+            if (level1SecondCounter >= 1) { level1SecondCounter -= 1; gameState.level1Timer--; displays.timer.textContent = Math.max(0, gameState.level1Timer); if (gameState.level1Timer <= 0) { endLevel1(); return; } }
             level1ItemTimer += deltaTime;
             if (level1ItemTimer >= 0.65) { level1ItemTimer = 0; createItem_L1(); }
             moveItems_L1(deltaTime);
@@ -119,7 +95,9 @@ document.addEventListener('DOMContentLoaded', () => {
             gameState.level2TotalTime -= deltaTime;
             level2SafeDrivingTimer += deltaTime;
             displays.remainingTime.textContent = Math.max(0, gameState.level2TotalTime).toFixed(1);
-            displays.progressBar.style.width = `${(level2ElapsedTime / LEVEL_2_DURATION) * 100}%`;
+            const progress = Math.min((level2ElapsedTime / LEVEL_2_DURATION) * 100, 100);
+            displays.progressBar.style.width = `${progress}%`;
+            displays.progressPercentage.textContent = `${Math.floor(progress)}%`;
 
             if (level2SafeDrivingTimer >= SAFE_DRIVING_INTERVAL) {
                 level2SafeDrivingTimer = 0;
@@ -137,30 +115,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ----- 关卡一 -----
-    function startLevel1() {
-        gameState.level = 1;
-        gameState.current = 'playing';
-        lastTime = performance.now();
-        level1ItemTimer = 0;
-        level1SecondCounter = 0;
-        gameState.animationFrameId = requestAnimationFrame(gameLoop);
-    }
-    function createItem_L1() { const key = level1WeightedItems[Math.floor(Math.random() * level1WeightedItems.length)]; const data = itemTypes[key]; const el = document.createElement('div'); el.className = 'item'; el.style.width = `${data.size}px`; el.style.height = `${data.size}px`; el.style.backgroundImage = `url(images/${key}.png)`; el.style.left = `${Math.random() * (gameAreas.level1.offsetWidth - data.size)}px`; el.style.top = `-${data.size}px`; el.dataset.speed = data.speed * 60; gameAreas.level1.appendChild(el); }
+    function startLevel1() { gameState.level = 1; gameState.current = 'playing'; lastTime = 0; level1ItemTimer = 0; level1SecondCounter = 0; gameState.animationFrameId = requestAnimationFrame(gameLoop); }
+    function createItem_L1() { const key = level1WeightedItems[Math.floor(Math.random() * level1WeightedItems.length)]; const data = itemTypes[key]; const el = document.createElement('div'); el.className = 'item'; el.style.width = `${data.size}px`; el.style.height = `${data.size}px`; el.style.backgroundImage = `url(images/${key}.png)`; el.style.left = `${Math.random() * (gameAreas.level1.offsetWidth - data.size)}px`; el.style.top = `-${data.size}px`; el.dataset.speed = data.speed * 60; el.dataset.type = key; gameAreas.level1.appendChild(el); }
     function moveItems_L1(deltaTime) { gameAreas.level1.querySelectorAll('.item').forEach(item => { item.style.top = `${item.offsetTop + parseFloat(item.dataset.speed) * deltaTime}px`; if (item.offsetTop > gameAreas.level1.offsetHeight) item.remove(); }); }
     function checkCollisions_L1() { if (gameState.current !== 'playing') return; const boxRect = playerElements.box.getBoundingClientRect(); gameAreas.level1.querySelectorAll('.item').forEach(item => { const itemRect = item.getBoundingClientRect(); if (boxRect.left < itemRect.right && boxRect.right > itemRect.left && boxRect.top < itemRect.bottom && boxRect.bottom > itemRect.top) { handleCollision_L1(item); item.remove(); } }); }
     function handleCollision_L1(item) { const data = itemTypes[item.dataset.type]; gameState.score += data.score; displays.score.textContent = gameState.score; if(item.dataset.type === 'oil') { document.body.style.filter = 'blur(3px)'; setTimeout(() => { document.body.style.filter = 'none'; }, 500); } }
     function endLevel1() { if (gameState.current !== 'playing') return; gameState.current = 'ended'; cancelAnimationFrame(gameState.animationFrameId); if (gameState.score >= TARGET_SCORE) { levels.level1.classList.remove('active'); levels.levelTransition.style.display = 'flex'; setTimeout(() => { levels.levelTransition.style.display = 'none'; levels.level2.classList.add('active'); startLevel2(); }, 2000); } else { gameOver(false, 'l1'); } }
 
     // ----- 关卡二 -----
-    function startLevel2() {
-        gameState.level = 2;
-        gameState.current = 'playing';
-        lastTime = performance.now();
-        level2ObjectTimer = 0;
-        level2ElapsedTime = 0;
-        level2SafeDrivingTimer = 0;
-        gameState.animationFrameId = requestAnimationFrame(gameLoop);
-    }
+    function startLevel2() { gameState.level = 2; gameState.current = 'playing'; lastTime = 0; level2ObjectTimer = 0; level2ElapsedTime = 0; level2SafeDrivingTimer = 0; gameState.animationFrameId = requestAnimationFrame(gameLoop); }
     function createRoadObject_L2() { const keys = Object.keys(roadObjectTypes); const key = keys[Math.floor(Math.random() * keys.length)]; const data = roadObjectTypes[key]; const el = document.createElement('div'); el.className = 'obstacle'; el.style.width = `${data.size}px`; el.style.height = `${data.size}px`; el.style.backgroundImage = `url(${data.img})`; el.style.left = `${Math.random() * (gameAreas.level2.offsetWidth - data.size)}px`; el.style.top = `-${data.size}px`; gameAreas.level2.appendChild(el); }
     function moveRoadObjects_L2(deltaTime) { gameAreas.level2.querySelectorAll('.obstacle').forEach(obj => { obj.style.top = `${obj.offsetTop + 300 * deltaTime}px`; if (obj.offsetTop > gameAreas.level2.offsetHeight) obj.remove(); }); }
     function checkTruckCollisions_L2() { if (gameState.hitCooldown || gameState.current !== 'playing') return; const truckRect = playerElements.truck.getBoundingClientRect(); gameAreas.level2.querySelectorAll('.obstacle').forEach(obj => { const objRect = obj.getBoundingClientRect(); if (truckRect.left < objRect.right && truckRect.right > objRect.left && truckRect.top < objRect.bottom && truckRect.bottom > objRect.top) { obj.remove(); triggerHitPenalty(); } }); }
@@ -171,6 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (gameState.current !== 'playing') return;
         gameState.current = 'ended';
         cancelAnimationFrame(gameState.animationFrameId);
+        
         const lang = translations[gameState.currentLanguage];
         if (isSuccess) {
             const timeBonus = (gameState.level2TotalTime > 0) ? Math.floor(gameState.level2TotalTime * 100) : 0;
@@ -178,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
             displays.endTitle.textContent = lang.success_title;
             displays.endDetails.innerHTML = `<p>${lang.success_details_win}: ${gameState.level2TotalTime.toFixed(1)}s × 100 = +${timeBonus}</p>`;
         } else {
-            gameState.finalScore = gameState.score; // No bonus if time runs out
+            gameState.finalScore = gameState.score;
             displays.endTitle.textContent = lang.fail_title;
             displays.endDetails.innerHTML = `<p>${lang.fail_details_l2}</p>`;
         }
@@ -207,7 +171,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function movePlayer(element, x) { const parent = element.parentElement; const parentWidth = parent.offsetWidth; const playerWidth = element.offsetWidth; let newLeft = x - playerWidth / 2; if (newLeft < 0) newLeft = 0; if (newLeft > parentWidth - playerWidth) newLeft = parentWidth - playerWidth; element.style.left = `${newLeft}px`; }
     function generateInstructions() {
         const lang = gameState.currentLanguage;
-        const langPack = translations[lang];
         let partsList = '';
         Object.keys(itemTypes).forEach(key => { const item = itemTypes[key]; const scoreText = (item.score > 0 ? '+' : '') + item.score; const style = item.score < 0 ? 'style="color: #ffdddd;"' : ''; partsList += `<li ${style}>${item.name[lang]}: ${scoreText}</li>`; });
         const l1Title = lang === 'zh' ? '第一关：零件收集' : 'Level 1: Part Collector';

@@ -5,8 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>奔驰星辉之路</title>
     <link rel="stylesheet" href="style.css">
+    <!-- LeanCloud SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/leancloud-storage/dist/av-min.js"></script>
 </head>
 <body>
+    <!-- 启动界面 -->
     <div id="start-screen" class="screen active">
         <div id="lang-switcher-container">
             <div id="lang-switcher">
@@ -22,6 +25,8 @@
             <button id="leaderboard-btn" data-lang-key="leaderboard">查看排行榜</button>
         </div>
     </div>
+
+    <!-- 玩家名称输入弹窗 -->
     <div id="name-entry-modal" class="modal">
         <div class="modal-content">
             <h2 data-lang-key="enter_name_title">输入你的名字</h2>
@@ -29,12 +34,17 @@
             <button id="confirm-name-btn" data-lang-key="confirm">确定</button>
         </div>
     </div>
+
+    <!-- 玩法说明界面 -->
     <div id="instructions-screen" class="screen">
         <h2 data-lang-key="instructions">玩法说明</h2>
         <div id="instructions-content" class="instructions-content"></div>
         <button class="back-to-menu" data-lang-key="back_to_menu">返回</button>
     </div>
+
+    <!-- 游戏主界面 -->
     <div id="game-screen" class="screen">
+        <!-- 关卡一 -->
         <div id="level1" class="level active">
             <div class="hud">
                 <span><span data-lang-key="hud_score">分数</span>: <span id="score">0</span></span>
@@ -45,9 +55,11 @@
                 <div id="player-box"><img src="images/box.png" alt="box"></div>
             </div>
         </div>
+        <!-- 关卡过渡 -->
         <div id="level-transition" class="level">
             <h2 data-lang-key="transition_text">恭喜过关！准备发车！</h2>
         </div>
+        <!-- 关卡二 -->
         <div id="level2" class="level">
              <div class="hud">
                 <span><span data-lang-key="hud_remaining_time">剩余时间</span>: <span id="remaining-time">35.0</span>s</span>
@@ -62,6 +74,8 @@
              </div>
         </div>
     </div>
+
+    <!-- 成功/失败界面 -->
     <div id="level2-end-screen" class="screen">
         <div class="end-content">
             <img src="images/4s_store.png" alt="Result" class="end-image">
@@ -70,6 +84,8 @@
             <button id="continue-to-leaderboard-btn" data-lang-key="success_continue">查看最终得分</button>
         </div>
     </div>
+
+    <!-- 游戏结束/积分榜界面 -->
     <div id="game-over-screen" class="screen">
         <h2 id="final-score-title"><span data-lang-key="final_score">最终得分</span>: <span id="final-score">0</span></h2>
         <div id="leaderboard">
@@ -78,6 +94,8 @@
         </div>
         <button id="restart-game-btn" data-lang-key="back_to_menu">返回主菜单</button>
     </div>
+
+    <!-- 独立的排行榜界面 -->
     <div id="leaderboard-screen" class="screen">
         <h2 data-lang-key="online_leaderboard">在线积分榜</h2>
         <div id="leaderboard-display">
@@ -85,8 +103,7 @@
         </div>
         <button class="back-to-menu" data-lang-key="back_to_menu">返回</button>
     </div>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
     <script src="script.js"></script>
 </body>
 </html>

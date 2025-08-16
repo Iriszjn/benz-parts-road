@@ -36,9 +36,7 @@
     <!-- 玩法说明界面 -->
     <div id="instructions-screen" class="screen">
         <h2 data-lang-key="instructions">玩法说明</h2>
-        <div id="instructions-content" class="instructions-content">
-            <!-- 内容由JS动态生成 -->
-        </div>
+        <div id="instructions-content" class="instructions-content"></div>
         <button class="back-to-menu" data-lang-key="back_to_menu">返回</button>
     </div>
 
@@ -66,6 +64,7 @@
              </div>
              <div id="progress-bar-container">
                 <div id="progress-bar"></div>
+                <span id="progress-percentage">0%</span> <!-- 新增百分比显示 -->
              </div>
              <div id="game-area2">
                 <div id="player-truck"><img src="images/truck.png" alt="truck"></div>

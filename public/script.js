@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let cachedLeaderboard = [];
     let currentLanguage = 'zh';
     let gameIntervals = [];
+    let currentLevel; // 添加currentLevel变量定义
 
     // ----- 游戏常量与数据 -----
     const TARGET_SCORE = 500;
@@ -51,7 +52,45 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateUIText() { const langPack = translations[currentLanguage]; document.documentElement.lang = currentLanguage; document.querySelectorAll('[data-lang-key]').forEach(el => { const key = el.getAttribute('data-lang-key'); if (langPack[key]) el.textContent = langPack[key]; }); document.querySelectorAll('[data-lang-key-placeholder]').forEach(el => { const key = el.getAttribute('data-lang-key-placeholder'); if(langPack[key]) el.placeholder = langPack[key]; }); generateInstructions(); }
     
     // ----- 初始化 -----
-    function init() { document.getElementById('start-screen').prepend(langSwitcherContainer); updateUIText(); listenForLeaderboardChanges(); movePlayer(playerElements.box, window.innerWidth / 2); movePlayer(playerElements.truck, window.innerWidth / 2); buttons.startGame.addEventListener('click', () => { modals.nameEntry.style.display = 'flex'; }); buttons.confirmName.addEventListener('click', () => { const name = playerNameInput.value.trim(); if (name) { playerName = name; modals.nameEntry.style.display = 'none'; startGame(); } else { alert(currentLanguage === 'zh' ? '请输入你的名字！' : 'Please enter your name!'); } }); buttons.instructions.addEventListener('click', () => showScreen('instructions')); buttons.leaderboard.addEventListener('click', () => { showScreen('leaderboard'); displayLeaderboard(displays.leaderboardListDisplay); }); buttons.backToMenu.forEach(btn => btn.addEventListener('click', () => showScreen('start'))); buttons.restartGame.addEventListener('click', () => { showScreen('start'); }); buttons.continueToLeaderboard.addEventListener('click', () => gameOver()); document.getElementById('lang-switcher').addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') { const lang = e.target.id.split('-')[1]; if (lang !== currentLanguage) { currentLanguage = lang; document.getElementById('lang-zh').classList.toggle('active'); document.getElementById('lang-en').classList.toggle('active'); updateUIText(); } } }); gameAreas.level1.addEventListener('touchmove', (e) => { e.preventDefault(); movePlayer(playerElements.box, e.touches[0].clientX); }, { passive: false }); gameAreas.level1.addEventListener('mousemove', (e) => { if (e.buttons === 1) movePlayer(playerElements.box, e.clientX); }); gameAreas.level2.addEventListener('touchmove', (e) => { e.preventDefault(); movePlayer(playerElements.truck, e.touches[0].clientX); }, { passive: false }); gameAreas.level2.addEventListener('mousemove', (e) => { if (e.buttons === 1) movePlayer(playerElements.truck, e.clientX); }); }
+    function init() { 
+        document.getElementById('start-screen').prepend(langSwitcherContainer); 
+        updateUIText(); 
+        listenForLeaderboardChanges(); 
+        
+        // 额外添加一个主动获取数据的调用，确保初始化时能获取到数据
+        db.collection("leaderboard")
+            .orderBy("score", "desc")
+            .limit(10)
+            .get()
+            .then((snapshot) => {
+                cachedLeaderboard = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        ...data,
+                        score: Number(data.score)
+                    };
+                });
+                console.log("Initial leaderboard data loaded:", cachedLeaderboard.length, "entries");
+            })
+            .catch((error) => {
+                console.error("Error fetching initial leaderboard data:", error);
+            });
+            
+        movePlayer(playerElements.box, window.innerWidth / 2); 
+        movePlayer(playerElements.truck, window.innerWidth / 2); 
+        buttons.startGame.addEventListener('click', () => { modals.nameEntry.style.display = 'flex'; }); 
+        buttons.confirmName.addEventListener('click', () => { const name = playerNameInput.value.trim(); if (name) { playerName = name; modals.nameEntry.style.display = 'none'; startGame(); } else { alert(currentLanguage === 'zh' ? '请输入你的名字！' : 'Please enter your name!'); } }); 
+        buttons.instructions.addEventListener('click', () => showScreen('instructions')); 
+        buttons.leaderboard.addEventListener('click', () => { showScreen('leaderboard'); displayLeaderboard(displays.leaderboardListDisplay); }); 
+        buttons.backToMenu.forEach(btn => btn.addEventListener('click', () => showScreen('start'))); 
+        buttons.restartGame.addEventListener('click', () => { showScreen('start'); }); 
+        buttons.continueToLeaderboard.addEventListener('click', () => gameOver()); 
+        document.getElementById('lang-switcher').addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') { const lang = e.target.id.split('-')[1]; if (lang !== currentLanguage) { currentLanguage = lang; document.getElementById('lang-zh').classList.toggle('active'); document.getElementById('lang-en').classList.toggle('active'); updateUIText(); } } }); 
+        gameAreas.level1.addEventListener('touchmove', (e) => { e.preventDefault(); movePlayer(playerElements.box, e.touches[0].clientX); }, { passive: false }); 
+        gameAreas.level1.addEventListener('mousemove', (e) => { if (e.buttons === 1) movePlayer(playerElements.box, e.clientX); }); 
+        gameAreas.level2.addEventListener('touchmove', (e) => { e.preventDefault(); movePlayer(playerElements.truck, e.touches[0].clientX); }, { passive: false }); 
+        gameAreas.level2.addEventListener('mousemove', (e) => { if (e.buttons === 1) movePlayer(playerElements.truck, e.clientX); }); 
+    }
     
     // ----- 游戏流程 -----
     function showScreen(screenName) { Object.values(screens).forEach(s => s.classList.remove('active')); screens[screenName].classList.add('active'); langSwitcherContainer.style.display = (screenName === 'start') ? 'block' : 'none'; }
@@ -138,9 +177,10 @@ document.addEventListener('DOMContentLoaded', () => {
             displays.endTitle.textContent = lang.fail_title;
             displays.endDetails.innerHTML = `<p>${lang.fail_details_l2}</p>`;
         }
-        if (finalScore > 0) {
-            updateLeaderboard(playerName, finalScore);
-        }
+        
+        // 移除分数>0的限制，确保总是提交分数
+        updateLeaderboard(playerName, finalScore);
+        
         showScreen('success');
     }
     
@@ -156,9 +196,76 @@ document.addEventListener('DOMContentLoaded', () => {
         displayLeaderboard(displays.leaderboardList);
     }
 
-    async function updateLeaderboard(name, newScore) { try { await db.collection("leaderboard").add({ name: name, score: newScore, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); console.log("Score submitted!"); } catch (error) { console.error("Error submitting score: ", error); } }
-    function listenForLeaderboardChanges() { db.collection("leaderboard").orderBy("score", "desc").limit(10).onSnapshot((snapshot) => { cachedLeaderboard = snapshot.docs.map(doc => doc.data()); if (screens.leaderboard.classList.contains('active')) displayLeaderboard(displays.leaderboardListDisplay); if (screens.gameOver.classList.contains('active')) displayLeaderboard(displays.leaderboardList); }, (error) => console.error(error)); }
-    function displayLeaderboard(listElement) { const lang = translations[currentLanguage]; listElement.innerHTML = ''; if (cachedLeaderboard.length === 0) { listElement.innerHTML = `<li>${lang.leaderboard_empty}</li>`; return; } cachedLeaderboard.forEach((entry, index) => { const li = document.createElement('li'); const safeName = document.createTextNode(entry.name).textContent; li.innerHTML = `<span>${index + 1}. ${safeName}</span><span>${entry.score}</span>`; listElement.appendChild(li); }); }
+    // 修改数据提交函数，确保分数为数字类型
+    async function updateLeaderboard(name, newScore) { 
+        try { 
+            // 确保分数是数字类型
+            const scoreNumber = Number(newScore);
+            await db.collection("leaderboard").add({ 
+                name: name, 
+                score: scoreNumber, 
+                createdAt: firebase.firestore.FieldValue.serverTimestamp() 
+            }); 
+            console.log("Score submitted!"); 
+        } catch (error) { 
+            console.error("Error submitting score: ", error); 
+        } 
+    }
+
+    // 修改数据监听函数，确保任何时候都更新缓存并在需要时刷新UI
+    function listenForLeaderboardChanges() { 
+        db.collection("leaderboard")
+            .orderBy("score", "desc")
+            .limit(10)
+            .onSnapshot((snapshot) => { 
+                // 转换为数组并确保分数是数字
+                cachedLeaderboard = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        ...data,
+                        score: Number(data.score) // 确保分数为数字
+                    };
+                }); 
+                
+                // 无论当前在哪个页面，只要有数据更新就刷新可见的积分榜
+                if (screens.leaderboard.classList.contains('active')) {
+                    displayLeaderboard(displays.leaderboardListDisplay);
+                }
+                if (screens.gameOver.classList.contains('active')) {
+                    displayLeaderboard(displays.leaderboardList);
+                }
+                
+                console.log("Leaderboard updated. Total entries:", cachedLeaderboard.length);
+            }, (error) => {
+                console.error("Error listening to leaderboard: ", error);
+                // 显示错误信息给用户
+                alert(currentLanguage === 'zh' ? '无法加载排行榜，请检查网络连接' : 'Failed to load leaderboard. Check your connection.');
+            }); 
+    }
+
+    // 修改显示函数，添加更多调试信息
+    function displayLeaderboard(listElement) { 
+        const lang = translations[currentLanguage]; 
+        listElement.innerHTML = ''; 
+        
+        if (cachedLeaderboard.length === 0) { 
+            listElement.innerHTML = `<li>${lang.leaderboard_empty}</li>`;
+            console.log("Leaderboard is empty");
+            return; 
+        } 
+        
+        // 确保数据已排序（客户端再次确认排序）
+        const sortedLeaderboard = [...cachedLeaderboard].sort((a, b) => b.score - a.score);
+        
+        sortedLeaderboard.forEach((entry, index) => { 
+            const li = document.createElement('li'); 
+            const safeName = entry.name ? document.createTextNode(entry.name).textContent : 'Anonymous';
+            li.innerHTML = `<span>${index + 1}. ${safeName}</span><span>${entry.score}</span>`;
+            listElement.appendChild(li); 
+        });
+        
+        console.log("Displayed leaderboard with", sortedLeaderboard.length, "entries");
+    }
     
     function movePlayer(element, x) { const parent = element.parentElement; const parentWidth = parent.offsetWidth; const playerWidth = element.offsetWidth; let newLeft = x - playerWidth / 2; if (newLeft < 0) newLeft = 0; if (newLeft > parentWidth - playerWidth) newLeft = parentWidth - playerWidth; element.style.left = `${newLeft}px`; }
     function generateInstructions() {

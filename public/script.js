@@ -7,40 +7,10 @@ AV.init({
   serverURL: "https://5femockt.lc-cn-n1-shared.com"
 });
 
-const screens = { 
-    start: document.getElementById('start-screen'), 
-    instructions: document.getElementById('instructions-screen'), 
-    game: document.getElementById('game-screen'), 
-    success: document.getElementById('level2-end-screen'), 
-    gameOver: document.getElementById('game-over-screen'), 
-    leaderboard: document.getElementById('leaderboard-screen') 
-};
+const screens = { start: document.getElementById('start-screen'), instructions: document.getElementById('instructions-screen'), game: document.getElementById('game-screen'), success: document.getElementById('level2-end-screen'), gameOver: document.getElementById('game-over-screen'), leaderboard: document.getElementById('leaderboard-screen') };
 const modals = { nameEntry: document.getElementById('name-entry-modal') };
-const buttons = { 
-    startGame: document.getElementById('start-game-btn'), 
-    instructions: document.getElementById('instructions-btn'), 
-    leaderboard: document.getElementById('leaderboard-btn'), 
-    confirmName: document.getElementById('confirm-name-btn'), 
-    backToMenu: document.querySelectorAll('.back-to-menu'), 
-    restartGame: document.getElementById('restart-game-btn'), 
-    continueToLeaderboard: document.getElementById('continue-to-leaderboard-btn') 
-};
-const displays = { 
-    score: document.getElementById('score'), 
-    targetScore: document.getElementById('target-score'), 
-    timer: document.getElementById('timer'), 
-    remainingTime: document.getElementById('remaining-time'), 
-    feedbackText: document.getElementById('feedback-text'), 
-    endTitle: document.getElementById('end-title'), 
-    endDetails: document.getElementById('end-details'), 
-    finalScore: document.getElementById('final-score'), 
-    finalScoreTitle: document.getElementById('final-score-title'), 
-    leaderboardList: document.getElementById('leaderboard-list'), 
-    leaderboardListDisplay: document.getElementById('leaderboard-list-display'), 
-    instructionsContent: document.getElementById('instructions-content'), 
-    progressBar: document.getElementById('progress-bar'), 
-    progressPercentage: document.getElementById('progress-percentage') 
-};
+const buttons = { startGame: document.getElementById('start-game-btn'), instructions: document.getElementById('instructions-btn'), leaderboard: document.getElementById('leaderboard-btn'), confirmName: document.getElementById('confirm-name-btn'), backToMenu: document.querySelectorAll('.back-to-menu'), restartGame: document.getElementById('restart-game-btn'), continueToLeaderboard: document.getElementById('continue-to-leaderboard-btn') };
+const displays = { score: document.getElementById('score'), targetScore: document.getElementById('target-score'), timer: document.getElementById('timer'), remainingTime: document.getElementById('remaining-time'), feedbackText: document.getElementById('feedback-text'), endTitle: document.getElementById('end-title'), endDetails: document.getElementById('end-details'), finalScore: document.getElementById('final-score'), finalScoreTitle: document.getElementById('final-score-title'), leaderboardList: document.getElementById('leaderboard-list'), leaderboardListDisplay: document.getElementById('leaderboard-list-display'), instructionsContent: document.getElementById('instructions-content'), progressBar: document.getElementById('progress-bar'), progressPercentage: document.getElementById('progress-percentage') };
 const gameAreas = { level1: document.getElementById('game-area1'), level2: document.getElementById('game-area2') };
 const levels = { level1: document.getElementById('level1'), levelTransition: document.getElementById('level-transition'), level2: document.getElementById('level2') };
 const playerElements = { box: document.getElementById('player-box'), truck: document.getElementById('player-truck') };
@@ -54,12 +24,10 @@ let finalScore = 0;
 let level1Timer = 30;
 let level2TotalTime = 35;
 let hitCooldown = false;
-let level2SafeDrivingTimer = 0;
 let cachedLeaderboard = [];
 let currentLanguage = 'zh';
 let gameIntervals = [];
-let currentLevel; 
-let isMobile = /Mobi|Android/i.test(navigator.userAgent);
+let currentLevel; // 添加currentLevel变量定义
 
 // ----- 游戏常量与数据 -----
 const TARGET_SCORE = 500;
@@ -85,107 +53,52 @@ const translations = {
 };
 
 // ----- 语言与UI -----
-function updateUIText() { 
-    const langPack = translations[currentLanguage]; 
-    document.documentElement.lang = currentLanguage; 
-    document.querySelectorAll('[data-lang-key]').forEach(el => { 
-        const key = el.getAttribute('data-lang-key'); 
-        if (langPack[key]) el.textContent = langPack[key]; 
-    }); 
-    document.querySelectorAll('[data-lang-key-placeholder]').forEach(el => { 
-        const key = el.getAttribute('data-lang-key-placeholder'); 
-        if(langPack[key]) el.placeholder = langPack[key]; 
-    }); 
-    generateInstructions(); 
-}
+function updateUIText() { const langPack = translations[currentLanguage]; document.documentElement.lang = currentLanguage; document.querySelectorAll('[data-lang-key]').forEach(el => { const key = el.getAttribute('data-lang-key'); if (langPack[key]) el.textContent = langPack[key]; }); document.querySelectorAll('[data-lang-key-placeholder]').forEach(el => { const key = el.getAttribute('data-lang-key-placeholder'); if(langPack[key]) el.placeholder = langPack[key]; }); generateInstructions(); }
 
 // ----- 初始化 -----
 function init() { 
-    console.log("设备类型: " + (isMobile ? "移动设备" : "桌面设备"));
-    
     document.getElementById('start-screen').prepend(langSwitcherContainer); 
     updateUIText(); 
     listenForLeaderboardChanges(); 
-    loadLeaderboardData(); // 初始加载排行榜数据
     
+    // 额外添加一个主动获取数据的调用，确保初始化时能获取到数据
+    const query = new AV.Query('Leaderboard');
+    query.descending('score');
+    query.limit(10);
+    query.find()
+        .then((results) => {
+            cachedLeaderboard = results.map(item => {
+                return {
+                    name: item.get('name'),
+                    score: Number(item.get('score')),
+                    id: item.id
+                };
+            });
+            console.log("Initial leaderboard data loaded:", cachedLeaderboard.length, "entries");
+        })
+        .catch((error) => {
+            console.error("Error fetching initial leaderboard data:", error);
+        });
+        
     movePlayer(playerElements.box, window.innerWidth / 2); 
     movePlayer(playerElements.truck, window.innerWidth / 2); 
-    
-    // 按钮事件绑定
-    buttons.startGame.addEventListener('click', () => { 
-        modals.nameEntry.style.display = 'flex'; 
-    }); 
-    
-    buttons.confirmName.addEventListener('click', () => { 
-        const name = playerNameInput.value.trim(); 
-        if (name) { 
-            playerName = name.substring(0, 10);
-            modals.nameEntry.style.display = 'none'; 
-            startGame(); 
-        } else { 
-            alert(currentLanguage === 'zh' ? '请输入你的名字！' : 'Please enter your name!'); 
-        } 
-    }); 
-    
+    buttons.startGame.addEventListener('click', () => { modals.nameEntry.style.display = 'flex'; }); 
+    buttons.confirmName.addEventListener('click', () => { const name = playerNameInput.value.trim(); if (name) { playerName = name; modals.nameEntry.style.display = 'none'; startGame(); } else { alert(currentLanguage === 'zh' ? '请输入你的名字！' : 'Please enter your name!'); } }); 
     buttons.instructions.addEventListener('click', () => showScreen('instructions')); 
-    buttons.leaderboard.addEventListener('click', () => { 
-        showScreen('leaderboard'); 
-        displayLeaderboard(displays.leaderboardListDisplay); 
-    }); 
-    
+    buttons.leaderboard.addEventListener('click', () => { showScreen('leaderboard'); displayLeaderboard(displays.leaderboardListDisplay); }); 
     buttons.backToMenu.forEach(btn => btn.addEventListener('click', () => showScreen('start'))); 
-    buttons.restartGame.addEventListener('click', () => showScreen('start')); 
+    buttons.restartGame.addEventListener('click', () => { showScreen('start'); }); 
     buttons.continueToLeaderboard.addEventListener('click', () => gameOver()); 
-    
-    document.getElementById('lang-switcher').addEventListener('click', (e) => { 
-        if (e.target.tagName === 'BUTTON') { 
-            const lang = e.target.id.split('-')[1]; 
-            if (lang !== currentLanguage) { 
-                currentLanguage = lang; 
-                document.getElementById('lang-zh').classList.toggle('active'); 
-                document.getElementById('lang-en').classList.toggle('active'); 
-                updateUIText(); 
-            } 
-        } 
-    }); 
-    
-    // 触摸和鼠标控制
-    gameAreas.level1.addEventListener('touchmove', (e) => { 
-        e.preventDefault(); 
-        if (e.touches && e.touches[0]) {
-            movePlayer(playerElements.box, e.touches[0].clientX); 
-        }
-    }, { passive: false }); 
-    
-    gameAreas.level1.addEventListener('mousemove', (e) => { 
-        if (e.buttons === 1) movePlayer(playerElements.box, e.clientX); 
-    }); 
-    
-    gameAreas.level2.addEventListener('touchmove', (e) => { 
-        e.preventDefault(); 
-        if (e.touches && e.touches[0]) {
-            movePlayer(playerElements.truck, e.touches[0].clientX); 
-        }
-    }, { passive: false }); 
-    
-    gameAreas.level2.addEventListener('mousemove', (e) => { 
-        if (e.buttons === 1) movePlayer(playerElements.truck, e.clientX); 
-    }); 
+    document.getElementById('lang-switcher').addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') { const lang = e.target.id.split('-')[1]; if (lang !== currentLanguage) { currentLanguage = lang; document.getElementById('lang-zh').classList.toggle('active'); document.getElementById('lang-en').classList.toggle('active'); updateUIText(); } } }); 
+    gameAreas.level1.addEventListener('touchmove', (e) => { e.preventDefault(); movePlayer(playerElements.box, e.touches[0].clientX); }, { passive: false }); 
+    gameAreas.level1.addEventListener('mousemove', (e) => { if (e.buttons === 1) movePlayer(playerElements.box, e.clientX); }); 
+    gameAreas.level2.addEventListener('touchmove', (e) => { e.preventDefault(); movePlayer(playerElements.truck, e.touches[0].clientX); }, { passive: false }); 
+    gameAreas.level2.addEventListener('mousemove', (e) => { if (e.buttons === 1) movePlayer(playerElements.truck, e.clientX); }); 
 }
 
 // ----- 游戏流程 -----
-function showScreen(screenName) { 
-    Object.values(screens).forEach(s => s.classList.remove('active')); 
-    screens[screenName].classList.add('active'); 
-    langSwitcherContainer.style.display = (screenName === 'start') ? 'block' : 'none'; 
-}
-
-function startGame() { 
-    resetGame(); 
-    showScreen('game'); 
-    startLevel1(); 
-}
-
+function showScreen(screenName) { Object.values(screens).forEach(s => s.classList.remove('active')); screens[screenName].classList.add('active'); langSwitcherContainer.style.display = (screenName === 'start') ? 'block' : 'none'; }
+function startGame() { resetGame(); showScreen('game'); startLevel1(); }
 function resetGame() {
     gameIntervals.forEach(clearInterval);
     gameIntervals = [];
@@ -194,15 +107,11 @@ function resetGame() {
     level1Timer = 30;
     level2TotalTime = 35;
     hitCooldown = false;
-    level2SafeDrivingTimer = 0;
     displays.score.textContent = score;
     displays.timer.textContent = level1Timer;
     displays.remainingTime.textContent = level2TotalTime.toFixed(1);
-    gameAreas.level1.innerHTML = ''; 
-    gameAreas.level1.appendChild(playerElements.box);
-    gameAreas.level2.innerHTML = ''; 
-    gameAreas.level2.appendChild(playerElements.truck); 
-    gameAreas.level2.appendChild(displays.feedbackText);
+    gameAreas.level1.innerHTML = ''; gameAreas.level1.appendChild(playerElements.box);
+    gameAreas.level2.innerHTML = ''; gameAreas.level2.appendChild(playerElements.truck); gameAreas.level2.appendChild(displays.feedbackText);
     levels.level1.classList.add('active');
     levels.levelTransition.style.display = 'none';
     levels.level2.classList.remove('active');
@@ -211,86 +120,15 @@ function resetGame() {
 // ----- 关卡一 -----
 function startLevel1() {
     currentLevel = 1;
-    const countdown = setInterval(() => { 
-        level1Timer--; 
-        displays.timer.textContent = Math.max(0, level1Timer); 
-        if (level1Timer <= 0) endLevel1(); 
-    }, 1000); 
-    gameIntervals.push(countdown);
-    
-    // 调整物品生成速度，避免过多元素导致卡顿
-    const itemInterval = isMobile ? 1000 : 700;
-    const itemFall = setInterval(createItem_L1, itemInterval); 
-    gameIntervals.push(itemFall);
-    
-    const gameLoop = setInterval(() => { 
-        moveItems_L1(); 
-        checkCollisions_L1(); 
-    }, 1000/60); 
-    gameIntervals.push(gameLoop);
+    const countdown = setInterval(() => { level1Timer--; displays.timer.textContent = Math.max(0, level1Timer); if (level1Timer <= 0) endLevel1(); }, 1000); gameIntervals.push(countdown);
+    const itemFall = setInterval(createItem_L1, 650); gameIntervals.push(itemFall);
+    const gameLoop = setInterval(() => { moveItems_L1(); checkCollisions_L1(); }, 1000/60); gameIntervals.push(gameLoop);
 }
-
-function createItem_L1() { 
-    const key = level1WeightedItems[Math.floor(Math.random() * level1WeightedItems.length)]; 
-    const data = itemTypes[key]; 
-    const el = document.createElement('div'); 
-    el.className = 'item'; 
-    el.style.width = `${data.size}px`; 
-    el.style.height = `${data.size}px`; 
-    el.style.backgroundImage = `url(${data.img})`; 
-    el.style.left = `${Math.random() * (gameAreas.level1.offsetWidth - data.size)}px`; 
-    el.style.top = `-${data.size}px`; 
-    el.dataset.type = key; 
-    el.dataset.speed = data.speed; 
-    gameAreas.level1.appendChild(el); 
-}
-
-function moveItems_L1() { 
-    gameAreas.level1.querySelectorAll('.item').forEach(item => { 
-        item.style.top = `${item.offsetTop + parseFloat(item.dataset.speed)}px`; 
-        if (item.offsetTop > gameAreas.level1.offsetHeight) item.remove(); 
-    }); 
-}
-
-function checkCollisions_L1() { 
-    const boxRect = playerElements.box.getBoundingClientRect(); 
-    gameAreas.level1.querySelectorAll('.item').forEach(item => { 
-        const itemRect = item.getBoundingClientRect(); 
-        if (boxRect.left < itemRect.right && boxRect.right > itemRect.left && 
-            boxRect.top < itemRect.bottom && boxRect.bottom > itemRect.top) { 
-            handleCollision_L1(item); 
-            item.remove(); 
-        } 
-    }); 
-}
-
-function handleCollision_L1(item) { 
-    const data = itemTypes[item.dataset.type]; 
-    score += data.score; 
-    displays.score.textContent = score; 
-    if(item.dataset.type === 'oil') { 
-        document.body.style.filter = 'blur(3px)'; 
-        setTimeout(() => { 
-            document.body.style.filter = 'none'; 
-        }, 500); 
-    } 
-}
-
-function endLevel1() { 
-    gameIntervals.forEach(clearInterval); 
-    gameIntervals = []; 
-    if (score >= TARGET_SCORE) { 
-        levels.level1.classList.remove('active'); 
-        levels.levelTransition.style.display = 'flex'; 
-        setTimeout(() => { 
-            levels.levelTransition.style.display = 'none'; 
-            levels.level2.classList.add('active'); 
-            startLevel2(); 
-        }, 2000); 
-    } else { 
-        gameOver(true, 'l1'); 
-    } 
-}
+function createItem_L1() { const key = level1WeightedItems[Math.floor(Math.random() * level1WeightedItems.length)]; const data = itemTypes[key]; const el = document.createElement('div'); el.className = 'item'; el.style.width = `${data.size}px`; el.style.height = `${data.size}px`; el.style.backgroundImage = `url(${data.img})`; el.style.left = `${Math.random() * (gameAreas.level1.offsetWidth - data.size)}px`; el.style.top = `-${data.size}px`; el.dataset.type = key; el.dataset.speed = data.speed; gameAreas.level1.appendChild(el); }
+function moveItems_L1() { gameAreas.level1.querySelectorAll('.item').forEach(item => { item.style.top = `${item.offsetTop + parseFloat(item.dataset.speed)}px`; if (item.offsetTop > gameAreas.level1.offsetHeight) item.remove(); }); }
+function checkCollisions_L1() { const boxRect = playerElements.box.getBoundingClientRect(); gameAreas.level1.querySelectorAll('.item').forEach(item => { const itemRect = item.getBoundingClientRect(); if (boxRect.left < itemRect.right && boxRect.right > itemRect.left && boxRect.top < itemRect.bottom && boxRect.bottom > itemRect.top) { handleCollision_L1(item); item.remove(); } }); }
+function handleCollision_L1(item) { const data = itemTypes[item.dataset.type]; score += data.score; displays.score.textContent = score; if(item.dataset.type === 'oil') { document.body.style.filter = 'blur(3px)'; setTimeout(() => { document.body.style.filter = 'none'; }, 500); } }
+function endLevel1() { gameIntervals.forEach(clearInterval); gameIntervals = []; if (score >= TARGET_SCORE) { levels.level1.classList.remove('active'); levels.levelTransition.style.display = 'flex'; setTimeout(() => { levels.levelTransition.style.display = 'none'; levels.level2.classList.add('active'); startLevel2(); }, 2000); } else { gameOver(true, 'l1'); } }
 
 // ----- 关卡二 -----
 function startLevel2() {
@@ -317,68 +155,16 @@ function startLevel2() {
     }, 100);
     gameIntervals.push(mainInterval);
 
-    // 调整障碍物生成速度，减少卡顿
-    const obstacleInterval = isMobile ? 1800 : 1500;
-    const roadObjectInterval = setInterval(createRoadObject_L2, obstacleInterval);
+    const roadObjectInterval = setInterval(createRoadObject_L2, 1200);
     gameIntervals.push(roadObjectInterval);
-    
     const gameLoop2 = setInterval(checkTruckCollisions_L2, 1000 / 60);
     gameIntervals.push(gameLoop2);
 }
 
-function createRoadObject_L2() { 
-    const keys = Object.keys(roadObjectTypes); 
-    const key = keys[Math.floor(Math.random() * keys.length)]; 
-    const data = roadObjectTypes[key]; 
-    const el = document.createElement('div'); 
-    el.className = 'obstacle'; 
-    el.style.width = `${data.size}px`; 
-    el.style.height = `${data.size}px`; 
-    el.style.backgroundImage = `url(${data.img})`; 
-    el.style.left = `${Math.random() * (gameAreas.level2.offsetWidth - data.size)}px`; 
-    el.style.top = `-${data.size}px`; 
-    gameAreas.level2.appendChild(el); 
-}
-
-function checkTruckCollisions_L2() { 
-    gameAreas.level2.querySelectorAll('.obstacle').forEach(obj => { 
-        obj.style.top = `${obj.offsetTop + 5}px`; 
-        if (obj.offsetTop > gameAreas.level2.offsetHeight) obj.remove(); 
-    }); 
-    
-    if (hitCooldown) return; 
-    const truckRect = playerElements.truck.getBoundingClientRect(); 
-    gameAreas.level2.querySelectorAll('.obstacle').forEach(obj => { 
-        const objRect = obj.getBoundingClientRect(); 
-        if (truckRect.left < objRect.right && truckRect.right > objRect.left && 
-            truckRect.top < objRect.bottom && truckRect.bottom > objRect.top) { 
-            obj.remove(); 
-            triggerHitPenalty(); 
-        } 
-    }); 
-}
-
-function triggerHitPenalty() { 
-    hitCooldown = true; 
-    level2SafeDrivingTimer = 0; 
-    level2TotalTime -= PENALTY_PER_COLLISION; 
-    showFeedback(`-${PENALTY_PER_COLLISION}s`, '#ff4d4d'); 
-    playerElements.truck.classList.add('hit'); 
-    setTimeout(() => { 
-        playerElements.truck.classList.remove('hit'); 
-        hitCooldown = false; 
-    }, 1000); 
-}
-
-function showFeedback(text, color) { 
-    const el = displays.feedbackText; 
-    el.textContent = text; 
-    el.style.color = color; 
-    el.style.opacity = 1; 
-    setTimeout(() => { 
-        el.style.opacity = 0; 
-    }, 1000); 
-}
+function createRoadObject_L2() { const keys = Object.keys(roadObjectTypes); const key = keys[Math.floor(Math.random() * keys.length)]; const data = roadObjectTypes[key]; const el = document.createElement('div'); el.className = 'obstacle'; el.style.width = `${data.size}px`; el.style.height = `${data.size}px`; el.style.backgroundImage = `url(${data.img})`; el.style.left = `${Math.random() * (gameAreas.level2.offsetWidth - data.size)}px`; el.style.top = `-${data.size}px`; gameAreas.level2.appendChild(el); }
+function checkTruckCollisions_L2() { gameAreas.level2.querySelectorAll('.obstacle').forEach(obj => { obj.style.top = `${obj.offsetTop + 5}px`; if (obj.offsetTop > gameAreas.level2.offsetHeight) obj.remove(); }); if (hitCooldown) return; const truckRect = playerElements.truck.getBoundingClientRect(); gameAreas.level2.querySelectorAll('.obstacle').forEach(obj => { const objRect = obj.getBoundingClientRect(); if (truckRect.left < objRect.right && truckRect.right > objRect.left && truckRect.top < objRect.bottom && truckRect.bottom > objRect.top) { obj.remove(); triggerHitPenalty(); } }); }
+function triggerHitPenalty() { hitCooldown = true; level2SafeDrivingTimer = 0; level2TotalTime -= PENALTY_PER_COLLISION; showFeedback(`-${PENALTY_PER_COLLISION}s`, '#ff4d4d'); playerElements.truck.classList.add('hit'); setTimeout(() => { playerElements.truck.classList.remove('hit'); hitCooldown = false; }, 1000); }
+function showFeedback(text, color) { const el = displays.feedbackText; el.textContent = text; el.style.color = color; el.style.opacity = 1; setTimeout(() => { el.style.opacity = 0; }, 1000); }
 
 function endLevel2(isSuccess) {
     gameIntervals.forEach(clearInterval);
@@ -396,7 +182,9 @@ function endLevel2(isSuccess) {
         displays.endDetails.innerHTML = `<p>${lang.fail_details_l2}</p>`;
     }
     
+    // 移除分数>0的限制，确保总是提交分数
     updateLeaderboard(playerName, finalScore);
+    
     showScreen('success');
 }
 
@@ -408,93 +196,75 @@ function gameOver(isL1Fail = false) {
     } else {
         displays.finalScoreTitle.innerHTML = `<span data-lang-key="final_score">${lang.final_score}</span>: <span>${finalScore}</span>`;
     }
-    
-    if (cachedLeaderboard.length === 0) {
-        displays.leaderboardList.innerHTML = `<li>${currentLanguage === 'zh' ? '正在加载排行榜...' : 'Loading leaderboard...'}</li>`;
-        loadLeaderboardData();
-    } else {
-        displayLeaderboard(displays.leaderboardList);
-    }
-    
     showScreen('gameOver');
+    displayLeaderboard(displays.leaderboardList);
 }
 
-// LeanCloud 分数提交
+// 修改数据提交函数，确保分数为数字类型
 async function updateLeaderboard(name, newScore) { 
     try { 
-        showFeedback(currentLanguage === 'zh' ? '正在提交分数...' : 'Submitting score...', '#ffff00');
-        
+        // 确保分数是数字类型
+        const scoreNumber = Number(newScore);
         const Leaderboard = AV.Object.extend('Leaderboard');
         const entry = new Leaderboard();
         entry.set('name', name);
-        entry.set('score', Number(newScore));
-        entry.set('device', isMobile ? 'mobile' : 'desktop');
-        
+        entry.set('score', scoreNumber);
+        entry.set('createdAt', new Date());
         await entry.save();
-        console.log("分数提交成功，ID: ", entry.id);
-        showFeedback(currentLanguage === 'zh' ? '分数提交成功！' : 'Score submitted!', '#4CAF50');
-        
+        console.log("Score submitted!"); 
     } catch (error) { 
-        console.error("分数提交失败: ", error); 
-        showFeedback(
-            currentLanguage === 'zh' ? '提交失败，请检查网络' : 'Submission failed, check network', 
-            '#ff4d4d'
-        );
+        console.error("Error submitting score: ", error); 
     } 
 }
 
-// LeanCloud 排行榜监听
+// 修改数据监听函数，确保任何时候都更新缓存并在需要时刷新UI
 function listenForLeaderboardChanges() { 
     const query = new AV.Query('Leaderboard');
     query.descending('score');
     query.limit(10);
     
     const subscription = query.subscribe();
-    subscription.on('update', () => {
-        loadLeaderboardData();
+    subscription.on('update', async () => {
+        try {
+            const results = await query.find();
+            // 转换为数组并确保分数是数字
+            cachedLeaderboard = results.map(item => {
+                return {
+                    name: item.get('name'),
+                    score: Number(item.get('score')),
+                    id: item.id
+                };
+            }); 
+            
+            // 无论当前在哪个页面，只要有数据更新就刷新可见的积分榜
+            if (screens.leaderboard.classList.contains('active')) {
+                displayLeaderboard(displays.leaderboardListDisplay);
+            }
+            if (screens.gameOver.classList.contains('active')) {
+                displayLeaderboard(displays.leaderboardList);
+            }
+            
+            console.log("Leaderboard updated. Total entries:", cachedLeaderboard.length);
+        } catch (error) {
+            console.error("Error listening to leaderboard: ", error);
+            // 显示错误信息给用户
+            alert(currentLanguage === 'zh' ? '无法加载排行榜，请检查网络连接' : 'Failed to load leaderboard. Check your connection.');
+        }
     });
 }
 
-// 加载排行榜数据
-async function loadLeaderboardData() {
-    try {
-        const query = new AV.Query('Leaderboard');
-        query.descending('score');
-        query.limit(10);
-        const results = await query.find();
-        
-        cachedLeaderboard = results.map(item => ({
-            name: item.get('name') || '匿名',
-            score: item.get('score') || 0,
-            id: item.id
-        }));
-        
-        if (screens.leaderboard.classList.contains('active')) {
-            displayLeaderboard(displays.leaderboardListDisplay);
-        }
-        if (screens.gameOver.classList.contains('active')) {
-            displayLeaderboard(displays.leaderboardList);
-        }
-        
-    } catch (error) {
-        console.error("加载排行榜失败: ", error);
-        showFeedback(
-            currentLanguage === 'zh' ? '排行榜加载失败' : 'Failed to load leaderboard', 
-            '#ff4d4d'
-        );
-    }
-}
-
-// 显示排行榜
+// 修改显示函数，添加更多调试信息
 function displayLeaderboard(listElement) { 
     const lang = translations[currentLanguage]; 
     listElement.innerHTML = ''; 
     
     if (cachedLeaderboard.length === 0) { 
         listElement.innerHTML = `<li>${lang.leaderboard_empty}</li>`;
+        console.log("Leaderboard is empty");
         return; 
     } 
     
+    // 确保数据已排序（客户端再次确认排序）
     const sortedLeaderboard = [...cachedLeaderboard].sort((a, b) => b.score - a.score);
     
     sortedLeaderboard.forEach((entry, index) => { 
@@ -503,18 +273,11 @@ function displayLeaderboard(listElement) {
         li.innerHTML = `<span>${index + 1}. ${safeName}</span><span>${entry.score}</span>`;
         listElement.appendChild(li); 
     });
+    
+    console.log("Displayed leaderboard with", sortedLeaderboard.length, "entries");
 }
 
-function movePlayer(element, x) { 
-    const parent = element.parentElement; 
-    const parentWidth = parent.offsetWidth; 
-    const playerWidth = element.offsetWidth; 
-    let newLeft = x - playerWidth / 2; 
-    if (newLeft < 0) newLeft = 0; 
-    if (newLeft > parentWidth - playerWidth) newLeft = parentWidth - playerWidth; 
-    element.style.left = `${newLeft}px`; 
-}
-
+function movePlayer(element, x) { const parent = element.parentElement; const parentWidth = parent.offsetWidth; const playerWidth = element.offsetWidth; let newLeft = x - playerWidth / 2; if (newLeft < 0) newLeft = 0; if (newLeft > parentWidth - playerWidth) newLeft = parentWidth - playerWidth; element.style.left = `${newLeft}px`; }
 function generateInstructions() {
     const lang = currentLanguage;
     let partsList = '';
@@ -536,4 +299,3 @@ function generateInstructions() {
 
 init();
 });
-

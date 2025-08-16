@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     // ----- Firebase & UI Elements -----
-    const firebaseConfig = { apiKey: "AIzaSyDQ_sNfeyHbZAJU1cIJ-Vt9b5E1FlE8a60", authDomain: "benz-parts-road.firebaseapp.com", projectId: "benz-parts-road", storageBucket: "benz-parts-road.firebasestorage.app", messagingSenderId: "423603206033", appId: "1:423603206033:web:1c2c80e79a1ee618b260c30" };
+    const firebaseConfig = { apiKey: "AIzaSyDQ_sNfeyHbZAJU1cIJ-Vt9b5E1FlE8a60", authDomain: "benz-parts-road.firebaseapp.com", projectId: "benz-parts-road", storageBucket: "benz-parts-road.firebasestorage.app", messagingSenderId: "423603206033", appId: "1:423603206033:web:1c280e79a1ee618b260c30" };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const screens = { start: document.getElementById('start-screen'), instructions: document.getElementById('instructions-screen'), game: document.getElementById('game-screen'), success: document.getElementById('level2-end-screen'), gameOver: document.getElementById('game-over-screen'), leaderboard: document.getElementById('leaderboard-screen') };
@@ -26,14 +26,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const SAFE_DRIVING_BONUS = 2;
     const LEVEL_2_DURATION = 30;
     const itemTypes = {
-        engine: { name: { zh: '发动机', en: 'Engine' }, score: 50, speed: 4, size: 100, img: 'images/engine.png' },
-        battery: { name: { zh: '汽车电池', en: 'Battery' }, score: 40, speed: 4, size: 50, img: 'images/battery.png' },
-        tire: { name: { zh: '轮胎', en: 'Tire' }, score: 10, speed: 3, size: 70, img: 'images/tire.png' },
-        brake_disc: { name: { zh: '刹车盘', en: 'Brake Disc' }, score: 20, speed: 4, size: 65, img: 'images/brake_disc.png' },
-        piston: { name: { zh: '活塞', en: 'Piston' }, score: 15, speed: 3, size: 60, img: 'images/piston.png' },
-        star: { name: { zh: '奔驰星徽', en: 'Star' }, score: 30, speed: 5, size: 60, img: 'images/star.png' },
-        oil: { name: { zh: '废油桶', en: 'Oil Barrel' }, score: -20, speed: 4, size: 65, img: 'images/oil_barrel.png' },
-        screw: { name: { zh: '螺丝', en: 'Screw' }, score: 1, speed: 2, size: 30, img: 'images/screw.png' }
+        engine: { name: { zh: '发动机', en: 'Engine' }, score: 50, speed: 4, size: 100 },
+        battery: { name: { zh: '汽车电池', en: 'Battery' }, score: 40, speed: 4, size: 50 },
+        tire: { name: { zh: '轮胎', en: 'Tire' }, score: 10, speed: 3, size: 70 },
+        brake_disc: { name: { zh: '刹车盘', en: 'Brake Disc' }, score: 20, speed: 4, size: 65 },
+        piston: { name: { zh: '活塞', en: 'Piston' }, score: 15, speed: 3, size: 60 },
+        star: { name: { zh: '奔驰星徽', en: 'Star' }, score: 30, speed: 5, size: 60 },
+        oil: { name: { zh: '废油桶', en: 'Oil Barrel' }, score: -20, speed: 4, size: 65 },
+        screw: { name: { zh: '螺丝', en: 'Screw' }, score: 1, speed: 2, size: 30 }
     };
     const level1WeightedItems = ['engine', 'battery', 'battery', 'tire', 'tire', 'tire', 'brake_disc', 'brake_disc', 'piston', 'piston', 'piston', 'star', 'star', 'screw', 'screw', 'screw', 'oil', 'oil', 'oil', 'oil'];
     const roadObjectTypes = { cone: { img: 'images/obstacle.png', size: 50 }, car_obstacle_red: { img: 'images/car_obstacle_red.png', size: 55 }, car_obstacle_blue: { img: 'images/car_obstacle_blue.png', size: 55 } };
@@ -146,6 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ----- 游戏结束与计分 -----
     async function gameOver(isL1Fail = false) {
         const lang = translations[gameState.currentLanguage];
+        displays.finalScoreTitle.style.display = 'block';
         if (isL1Fail) {
             displays.finalScoreTitle.textContent = lang.fail_details_l1;
         } else {

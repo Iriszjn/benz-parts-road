@@ -83,11 +83,11 @@ button:hover {
     font-size: 2.8em;
     text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
     margin: 15px 0 30px 0;
-    word-break: break-word; /* 确保长英文标题可以换行 */
+    word-break: break-word;
+    text-align: center;
 }
-/* 英文标题字体调整 */
 html[lang="en"] #start-screen .game-title {
-    font-size: 2.4em; /* <<<--- 英文标题字体已调小 */
+    font-size: 2.4em;
 }
 #start-screen .star-logo {
     width: 80px;
@@ -242,7 +242,7 @@ html[lang="en"] #start-screen .game-title {
     background-repeat: no-repeat;
 }
 #progress-bar-container {
-    position: relative; /* 改为relative，以便百分比定位 */
+    position: relative;
     top: 60px;
     left: 50%;
     transform: translateX(-50%);
@@ -261,12 +261,13 @@ html[lang="en"] #start-screen .game-title {
 }
 #progress-percentage {
     position: absolute;
-    right: -35px; /* <<<--- 调整了位置，避免出界 */
+    right: -35px;
     top: 50%;
     transform: translateY(-50%);
     font-size: 0.9em;
     color: #fff;
     text-shadow: 1px 1px 2px #000;
+    margin-left: 5px;
 }
 #level-transition {
     display: none;
